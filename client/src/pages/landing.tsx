@@ -158,7 +158,7 @@ export default function LandingPage() {
           <div className={`flex flex-col sm:flex-row gap-4 justify-center transition-all duration-1000 delay-600 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
             <Button
               size="lg"
-              className="bg-gradient-to-r from-[#005454] to-[#007070] hover:from-[#007070] hover:to-[#005454] text-white text-lg px-8 py-3 transform hover:scale-105 transition-all duration-300 hover:shadow-xl animate-pulse"
+              className="bg-gradient-to-r from-[#005454] to-[#007070] hover:from-[#007070] hover:to-[#005454] text-white text-lg px-8 py-3 transform hover:scale-105 transition-all duration-300 hover:shadow-xl"
               onClick={() => setLocation("/login")}
             >
               Accéder à la plateforme
@@ -288,7 +288,7 @@ export default function LandingPage() {
 
       {/* Testimonials Section */}
       <section className="py-16 bg-white/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/*<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Ce que disent nos utilisateurs
@@ -312,7 +312,7 @@ export default function LandingPage() {
               </Card>
             ))}
           </div>
-        </div>
+        </div>*/}
       </section>
 
       {/* CTA Section */}
