@@ -84,7 +84,7 @@ export default function LandingPage() {
             </div>
             <Button
               onClick={() => setLocation("/login")}
-              className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-primary-foreground"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Se connecter
             </Button>
@@ -107,7 +107,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-primary-foreground text-lg px-8 py-3"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-3"
               onClick={() => setLocation("/login")}
             >
               Accéder à la plateforme
@@ -212,7 +212,7 @@ export default function LandingPage() {
           </p>
           <Button
             size="lg"
-            className="bg-white text-[hsl(var(--primary))] hover:bg-gray-100 text-lg px-8 py-3 border border-white"
+            className="bg-white text-primary hover:bg-gray-100 text-lg px-8 py-3 border border-white"
             onClick={() => setLocation("/login")}
           >
             Commencer maintenant
