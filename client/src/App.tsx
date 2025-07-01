@@ -26,6 +26,7 @@ import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/app-layout";
 import Workflows from "@/pages/workflows";
 import ChatbotPage from "@/pages/chatbot"; // Import ChatbotPage component
+import LandingPage from "@/pages/landing";
 
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -123,6 +124,9 @@ function Router() {
   return (
     <Switch>
       {/* Auth Routes */}
+      <Route path="/">
+        <LandingPage />
+      </Route>
       <Route path="/login">
         <AuthRoute component={LoginPage} />
       </Route>
@@ -161,7 +165,7 @@ function Router() {
 
 
       {/* Protected Routes */}
-      <Route path="/">
+      <Route path="/dashboard">
         <ProtectedRoute component={() => (
           <AppLayout>
             <Dashboard />
