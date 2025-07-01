@@ -84,7 +84,7 @@ export default function LandingPage() {
             </div>
             <Button
               onClick={() => setLocation("/login")}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="bg-[#005454] hover:bg-primary/90 text-primary-foreground hover:text-[#005454] border-2 border-[#005454] hover:border-[#005454]"
             >
               Se connecter
             </Button>
@@ -107,14 +107,11 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-3"
+              className="bg-[#005454] hover:bg-primary/90 hover:text-[#005454] border-2 border-[#005454] text-primary-foreground text-lg px-8 py-3"
               onClick={() => setLocation("/login")}
             >
               Accéder à la plateforme
               <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-3">
-              En savoir plus
             </Button>
           </div>
         </div>
@@ -200,7 +197,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-blue-600 py-16">
+      <section className="bg-[#005454] py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
             Prêt à améliorer la prise en charge de vos patients ?
