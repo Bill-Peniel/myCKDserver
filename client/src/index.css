@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02];
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+
+  .sidebar-item {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .sidebar-item:hover {
+    @apply translate-x-2 bg-[var(--primary-light)] text-white;
+  }
+
+  .btn-primary {
+    @apply transition-all duration-300 hover:shadow-lg active:scale-95;
+    transform-style: preserve-3d;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+  nav a {
+    @apply transform transition-all duration-300 ease-in-out;
+  }
+
+  nav a:hover {
+    @apply translate-x-2 scale-105;
+  }
+
+  nav a:active {
+    @apply scale-95;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  :root {
+    --primary-dark: #084741;
+    --primary-light: #146E64;
+    --sidebar-background: 173 74% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 173 70% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 173 80% 40%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 173 60% 25%;
+    --sidebar-ring: 173 70% 30%;
+  }
+
+  /* Amélioration du thème sombre */
+  .dark {
+    --background: 0 0% 8%;  /* Mélange de noir et de cendre */
+    --foreground: 0 0% 98%; /* Texte blanc */
+
+    --card: 0 0% 11%;       /* Carte légèrement plus claire que l'arrière-plan */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 98%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 75%;
+
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+
+    --ring: var(--primary);
+
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .dark body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Appliquer le thème aux éléments personnalisés */
+.sidebar {
+  background-color: hsl(var(--sidebar-background));
+  color: hsl(var(--sidebar-foreground));
+  border-color: hsl(var(--sidebar-border));
+}
+
+.sidebar-item {
+  color: hsl(var(--sidebar-foreground));
+}
+
+.sidebar-item:hover {
+  background-color: hsl(var(--sidebar-primary));
+}
+
+.sidebar-item.active {
+  background-color: hsl(var(--sidebar-primary));
+  border-color: hsl(var(--sidebar-accent));
+}
+
+/* Assurez-vous que tous les boutons et les éléments interactifs utilisent la couleur primaire */
+.btn-primary,
+.bg-primary,
+.text-primary,
+.border-primary,
+.hover:bg-primary,
+.hover:text-primary,
+.hover:border-primary {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Correction pour les badges et autres indicateurs */
+.badge-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Amélioration des contrastes en mode sombre */
+.dark .bg-muted {
+  background-color: hsl(0 0% 11%);
+}
+
+.dark .border-border {
+  border-color: hsl(0 0% 25%);
+}
+
+/* Amélioration de la visibilité des textes en mode sombre */
+.dark .text-gray-900 {
+  color: white !important;
+}
+
+.dark .text-gray-800 {
+  color: hsl(0 0% 98%) !important;
+}
+
+.dark .text-gray-700 {
+  color: hsl(0 0% 95%) !important;
+}
+
+.dark .text-gray-600 {
+  color: hsl(0 0% 90%) !important;
+}
+
+.dark .text-gray-500 {
+  color: hsl(0 0% 80%) !important;
+}
+
+.dark .text-gray-400 {
+  color: hsl(0 0% 70%) !important;
+}

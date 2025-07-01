@@ -40,6 +40,8 @@ import nodemailer from "nodemailer";
 import twilio from "twilio";
 import fs from "fs";
 import path from "path";
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Configuration des services de notification
 const emailTransporter = nodemailer.createTransport({
