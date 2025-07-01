@@ -1,0 +1,57 @@
+==> Il semble que nous n’ayons pas accès à votre dépôt, mais nous essaierons quand même de le cloner.
+==> Clonage à partir de https://github.com/Bill-Peniel/myCKDserver
+==> Extraction de la 46e146bef3e4ea316963699763151578822e636c de validation dans la branche main
+==> Utilisation de Node.js version 22.16.0 (par défaut)
+==> Documents sur la spécification d’une version Node.js : https://render.com/docs/node-version
+==> Utilisation de Bun version 1.1.0 (par défaut)
+==> Documents sur la spécification d’une version de Bun : https://render.com/docs/bun-version
+==> Exécution de la commande de construction 'npm install ;  npm run build'...
+Ajout de 609 packages et audit de 610 packages en 23 secondes
+67 packages sont à la recherche de financement
+  Exécutez 'NPM Fund' pour plus de détails
+10 vulnérabilités (1 faible, 7 modérées, 2 élevées)
+Pour résoudre les problèmes qui ne nécessitent pas d’attention particulière, exécutez :
+  Correction de l’audit npm
+Pour résoudre tous les problèmes (y compris les modifications cassantes), exécutez :
+  npm audit fix --force
+Exécutez 'npm audit' pour plus de détails.
+> build rest-express@1.0.0
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+VITE v5.4.14 Construction pour la production...
+Transformer...
+✓ 2138 modules transformés.
+Rendu de morceaux...
+Calcul de la taille gzip...
+.. /dist/public/index.html 1.58 kB │ gzip : 0.60 kB
+.. /dist/public/assets/index-BTZPUWfY.css 72.53 kB │ gzip : 12.51 kB
+.. /dist/public/assets/purify.es-D-QPbZEk.js 21.82 kB │ gzip : 8.60 kB
+.. /dist/public/assets/index.es-D-KxKy6F.js 149.98 kB │ gzip : 51.25 kB
+(!)  Certains morceaux dépassent 500 ko après minification.  Considérer:
+- Utilisation de dynamic import() pour diviser le code de l’application
+- Utilisez build.rollupOptions.output.manualChunks pour améliorer le chunking : https://rollupjs.org/configuration-options/#output-manualchunks
+- Ajustez la limite de taille de bloc pour cet avertissement via build.chunkSizeWarningLimit.
+.. /dist/public/assets/html2canvas.esm-CBrSDip1.js 201.42 kB │ gzip : 48.03 kB
+.. /dist/public/assets/index-H6-t5R8Z.js 1 214,30 kB │ gzip : 377,39 kB
+✓ Construit en 8,08 s
+  dist/index.js 15.8kB
+⚡ Réalisé en 4 ms
+==> Téléchargement de la build...
+==> Déploiement...
+==> Téléchargé en 6.7s.  La compression a pris 5,0 s
+==> Construire avec succès 🎉
+==> Exécution de 'npm run start'
+> REST-express@1.0.0 START
+> NODE_ENV=Production TSX Serveur/index.ts
+==> Quitté avec le statut 1
+==> Méthodes courantes de dépannage de votre déploiement : https://render.com/docs/troubleshooting-deploys
+🔌 Test de la connexion à la base de données...
+/opt/render/project/src/server/vite.ts :74
+  throw new Error(
+          ^
+Erreur : Impossible de trouver le répertoire de compilation : /opt/render/project/src/server/public, assurez-vous de compiler le client en premier
+  à serveStatic (/opt/render/project/src/server/vite.ts :74:11)
+  à <anonyme> (/opt/render/project/src/server/index.ts :107:5)
+Node.js v22.16.0
+==> Exécution de 'npm run start'
+> REST-express@1.0.0 START
+> NODE_ENV=Production TSX Serveur/index.ts
