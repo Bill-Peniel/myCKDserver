@@ -3,10 +3,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db } from './db';
 import { patients, doctors } from '../shared/schema';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 const app = express();
 app.use(express.json());
