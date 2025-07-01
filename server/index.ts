@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db } from './db';
 import { patients, doctors } from '../shared/schema';
+import { sql } from 'drizzle-orm';
 
 const app = express();
 app.use(express.json());
@@ -54,7 +55,7 @@ async function seed() {
 async function testDatabaseConnection() {
   try {
     console.log('🔌 Testing database connection...');
-    await db.execute({ sql: 'SELECT 1', params: [] });
+    await db.execute(sql`SELECT 1`);
     console.log('✅ Database connection successful');
     return true;
   } catch (error) {
