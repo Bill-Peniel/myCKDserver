@@ -30,27 +30,27 @@ export default function LandingPage() {
 
   const features = [
     {
-      icon: <Heart className="h-8 w-8 text-red-500" />,
+      icon: <Heart className="h-8 w-8 text-red-200" />,
       title: "Suivi Personnalisé",
       description:
         "Surveillance continue de l'évolution de la maladie rénale chronique",
       color: "from-red-500 to-pink-500",
     },
     {
-      icon: <Shield className="h-8 w-8 text-blue-500" />,
+      icon: <Shield className="h-8 w-8 text-blue-200" />,
       title: "Prévention Active",
       description: "Détection précoce et prévention des complications",
       color: "from-blue-500 to-cyan-500",
     },
     {
-      icon: <Users className="h-8 w-8 text-green-500" />,
+      icon: <Users className="h-8 w-8 text-green-200" />,
       title: "Équipe Médicale",
       description:
         "Coordination entre médecins, néphrologues et équipe soignante",
       color: "from-green-500 to-emerald-500",
     },
     {
-      icon: <TrendingUp className="h-8 w-8 text-purple-500" />,
+      icon: <TrendingUp className="h-8 w-8 text-purple-200" />,
       title: "Analyses Avancées",
       description: "Suivi des paramètres biologiques et tendances d'évolution",
       color: "from-purple-500 to-indigo-500",
