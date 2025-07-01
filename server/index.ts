@@ -1,10 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { connectDB } from "./db";
+import { db } from './db';
+import { patients, doctors } from '../shared/schema';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 const app = express();
 app.use(express.json());
@@ -40,8 +42,13 @@ app.use((req, res, next) => {
   next();
 });
 
+async function seed() {
+  await db.insert(doctors).values({ name: "Dr. House", specialty: "Nephrology", email: "house@hospital.com" });
+  await db.insert(patients).values({ name: "John Doe", age: 45, email: "john@doe.com" });
+}
+seed();
+
 (async () => {
-  await connectDB();
   const server = await registerRoutes(app);
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {

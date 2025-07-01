@@ -23,27 +23,23 @@ export const users = pgTable("users", {
 // Patients table
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique().references(() => users.id),
-  birthDate: date("birth_date").notNull(),
-  gender: text("gender", { enum: ['M', 'F', 'Autre'] }).notNull(),
-  address: text("address"),
-  phone: text("phone"),
-  ckdStage: text("ckd_stage", { enum: ['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'] }).notNull(),
-  proteinuriaLevel: text("proteinuria_level", { enum: ['A1', 'A2', 'A3'] }).default('A1'),
-  lastEgfrValue: decimal("last_egfr_value", { precision: 10, scale: 2 }),
-  lastProteinuriaValue: decimal("last_proteinuria_value", { precision: 10, scale: 2 })
+  name: text("name").notNull(),
+  age: integer("age"),
+  email: text("email"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Doctors table
 export const doctors = pgTable("doctors", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique().references(() => users.id),
-  specialty: text("specialty").notNull(),
-  hospital: text("hospital")
+  name: text("name").notNull(),
+  specialty: text("specialty"),
+  email: text("email"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Lab tests table
-export const labTests = pgTable("lab_tests", {
+export const labTests = pgTable("labTests", {
   id: serial("id").primaryKey(),
   testName: text("test_name").notNull(),
   description: text("description"),
@@ -65,11 +61,11 @@ export const patientLabResults = pgTable("patient_lab_results", {
 // Appointments table
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").notNull().references(() => patients.id),
-  doctorId: integer("doctor_id").notNull().references(() => doctors.id),
-  appointmentDate: timestamp("appointment_date").notNull(),
-  purpose: text("purpose"),
-  status: text("status", { enum: ['pending', 'confirmed', 'cancelled', 'completed'] }).default('pending')
+  patientId: integer("patient_id").references(() => patients.id),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  date: timestamp("date"),
+  status: text("status"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Notifications table
