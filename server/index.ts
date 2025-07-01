@@ -43,10 +43,35 @@ app.use((req, res, next) => {
 });
 
 async function seed() {
-  await db.insert(doctors).values({ name: "Dr. House", specialty: "Nephrology", email: "house@hospital.com" });
-  await db.insert(patients).values({ name: "John Doe", age: 45, email: "john@doe.com" });
+  try {
+    console.log('🌱 Starting database seeding...');
+    await db.insert(doctors).values({ name: "Dr. House", specialty: "Nephrology", email: "house@hospital.com" });
+    await db.insert(patients).values({ name: "John Doe", age: 45, email: "john@doe.com" });
+    console.log('✅ Database seeded successfully');
+  } catch (error) {
+    console.error('❌ Error seeding database:', error);
+    // Don't exit on seed error, just log it
+  }
 }
-seed();
+
+// Test database connection before seeding
+async function testDatabaseConnection() {
+  try {
+    console.log('🔌 Testing database connection...');
+    await db.execute({ sql: 'SELECT 1', params: [] });
+    console.log('✅ Database connection successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    return false;
+  }
+}
+
+testDatabaseConnection().then((connected) => {
+  if (connected) {
+    seed();
+  }
+});
 
 (async () => {
   const server = await registerRoutes(app);
