@@ -39,7 +39,7 @@ export const doctors = pgTable("doctors", {
 });
 
 // Lab tests table
-export const labTests = pgTable("labTests", {
+export const labTests = pgTable("lab_tests", {
   id: serial("id").primaryKey(),
   testName: text("test_name").notNull(),
   description: text("description"),
