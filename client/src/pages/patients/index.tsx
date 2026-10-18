@@ -1,35 +1,71 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import AddEditDialog from '@/components/patients/add-edit-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, FileX, Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AvatarName } from '@/components/ui/avatar-name';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Loader } from '@/components/ui/loader';
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  MapPin,
+  MoreHorizontal,
+  Pencil,
+  Phone,
+  Trash2,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { EmptyState, PageHeader, SearchInput, StageBadge, UserAvatar } from '@/components/kit';
 import { Patient } from '@/lib/types';
-import { getCKDStageColor, calculateAge } from '@/lib/utils';
+import { calculateAge, cn } from '@/lib/utils';
 import { apiRequest } from '@/lib/queryClient';
+
+const STAGES = ['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'];
+
+const GENDER_LABELS: Record<string, string> = { M: 'Homme', F: 'Femme', Autre: 'Autre' };
+
+const patientCode = (p: any) => `P-${String(p._id ?? p.id).padStart(5, '0')}`;
+
+function TableSkeleton() {
+  return (
+    <div className="divide-y">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-40" />
+            <Skeleton className="h-3 w-56" />
+          </div>
+          <Skeleton className="hidden h-5 w-20 rounded-md sm:block" />
+          <Skeleton className="hidden h-3.5 w-28 md:block" />
+          <Skeleton className="h-7 w-7 rounded-md" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function PatientsPage() {
   const [, setLocation] = useLocation();
@@ -39,6 +75,7 @@ export default function PatientsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [addEditDialogOpen, setAddEditDialogOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | undefined>();
+  const [patientToDelete, setPatientToDelete] = useState<Patient | undefined>();
   const patientsPerPage = 10;
 
   const { data: patients, isLoading, refetch } = useQuery<Patient[]>({
@@ -57,242 +94,321 @@ export default function PatientsPage() {
     return matchesSearch && matchesStage;
   }) || [];
 
-  // Calculate pagination
+  // Pagination
   const totalPages = Math.ceil(filteredPatients.length / patientsPerPage);
   const startIndex = (currentPage - 1) * patientsPerPage;
   const paginatedPatients = filteredPatients.slice(startIndex, startIndex + patientsPerPage);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Reset to first page when searching
+    // Retour à la première page lors d'une recherche
     setCurrentPage(1);
   };
 
   const handleDeletePatient = async (patient: Patient) => {
-    if (window.confirm('Are you sure you want to delete this patient?')) {
-      try {
-        await apiRequest('DELETE', `/api/patients/${patient._id}`, {});
-        toast({
-          title: 'Patient deleted',
-          description: 'The patient has been successfully deleted',
-        });
-        refetch();
-      } catch (error) {
-        console.error('Delete error:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete patient',
-          variant: 'destructive',
-        });
-      }
+    try {
+      await apiRequest('DELETE', `/api/patients/${(patient as any)._id}`, {});
+      toast({
+        title: 'Patient supprimé',
+        description: 'Le dossier du patient a bien été supprimé.',
+      });
+      refetch();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de supprimer le patient.',
+        variant: 'destructive',
+      });
     }
   };
 
-  return (
-    <div className="flex flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Patients</h1>
-        <Button className="flex items-center gap-2" onClick={() => setAddEditDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          <span>Ajouter un patient</span>
+  const openEdit = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setAddEditDialogOpen(true);
+  };
+
+  const hasFilters = searchQuery !== '' || filterStage !== 'all';
+
+  const RowActions = ({ patient }: { patient: Patient }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Actions"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal />
         </Button>
-      </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem asChild>
+          <Link href={`/patients/${(patient as any)._id}`}>
+            <Eye /> Voir la fiche
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openEdit(patient)}>
+          <Pencil /> Modifier
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onSelect={() => setPatientToDelete(patient)}
+        >
+          <Trash2 /> Supprimer
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Registre des Patients</CardTitle>
-              <CardDescription>
-                Gérer et consulter tous les patients enregistrés
-              </CardDescription>
-            </div>
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Patients"
+        description="Gérez et consultez l'ensemble des patients que vous suivez."
+        actions={
+          <Button onClick={() => setAddEditDialogOpen(true)}>
+            <UserPlus /> Ajouter un patient
+          </Button>
+        }
+      />
 
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <form onSubmit={handleSearch} className="relative w-full sm:w-auto">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  type="search"
-                  placeholder="Search patients..."
-                  className="pl-8 w-full sm:w-[250px]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </form>
-
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Select
-                  value={filterStage}
-                  onValueChange={setFilterStage}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filter by stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Stages</SelectItem>
-                    <SelectItem value="Stage 1">Stage 1</SelectItem>
-                    <SelectItem value="Stage 2">Stage 2</SelectItem>
-                    <SelectItem value="Stage 3A">Stage 3A</SelectItem>
-                    <SelectItem value="Stage 3B">Stage 3B</SelectItem>
-                    <SelectItem value="Stage 4">Stage 4</SelectItem>
-                    <SelectItem value="Stage 5">Stage 5</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-96 flex items-center justify-center">
-              <Loader size="lg" />
-            </div>
-          ) : filteredPatients.length === 0 ? (
-            <div className="h-60 flex flex-col items-center justify-center text-gray-500">
-              <FileX className="h-12 w-12 mb-4" />
-              <h3 className="text-lg font-medium">No patients found</h3>
-              <p className="text-sm">Try adjusting your search or filter criteria</p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead key="patient">Patient</TableHead>
-                      <TableHead key="id">ID</TableHead>
-                      <TableHead key="age">Age/Gender</TableHead>
-                      <TableHead key="stage">CKD Stage</TableHead>
-                      <TableHead key="contact">Contact</TableHead>
-                      <TableHead key="actions" className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedPatients.map((patient) => (
-                      <TableRow key={patient._id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <AvatarName
-                            firstName={patient.user.firstName}
-                            lastName={patient.user.lastName}
-                            showEmail
-                            email={patient.user.email}
-                            gender={patient.gender}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-gray-900">P-{patient._id.toString().padStart(5, '0')}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-gray-900">{calculateAge(patient.birthDate)} / {patient.gender}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`${getCKDStageColor(patient.ckdStage).bg} ${getCKDStageColor(patient.ckdStage).text} px-2 py-1 text-xs`}>
-                            {patient.ckdStage}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-gray-900">{patient.phone || 'N/A'}</div>
-                          <div className="text-xs text-gray-500">{patient.address || 'No address'}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Link href={`/patients/${patient._id}`}>
-                              <Button 
-                                variant="default" 
-                                size="sm"
-                                className="mr-2"
-                              >
-                                Voir
-                              </Button>
-                            </Link>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPatient(patient);
-                                setAddEditDialogOpen(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={() => handleDeletePatient(patient)}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-between items-center mt-4">
-                  <div className="text-sm text-gray-500">
-                    Showing {startIndex + 1} to {Math.min(startIndex + patientsPerPage, filteredPatients.length)} of {filteredPatients.length} patients
-                  </div>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
-                        />
-                      </PaginationItem>
-
-                      {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                        const page = i + 1;
-                        return (
-                          <PaginationItem key={i}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(page)}
-                              isActive={currentPage === page}
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-
-                      {totalPages > 5 && currentPage < totalPages - 2 && (
-                        <PaginationItem>
-                          <span className="flex h-9 w-9 items-center justify-center">...</span>
-                        </PaginationItem>
-                      )}
-
-                      {totalPages > 5 && (
-                        <PaginationItem>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(totalPages)}
-                            isActive={currentPage === totalPages}
-                          >
-                            {totalPages}
-                          </PaginationLink>
-                        </PaginationItem>
-                      )}
-
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </>
+      <Card className="overflow-hidden">
+        {/* Barre d'outils */}
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
+          <form onSubmit={handleSearch} className="w-full sm:max-w-xs">
+            <SearchInput
+              placeholder="Rechercher un patient…"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </form>
+          <Select
+            value={filterStage}
+            onValueChange={(v) => {
+              setFilterStage(v);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filtrer par stade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les stades</SelectItem>
+              {STAGES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s.replace('Stage', 'Stade')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start text-muted-foreground sm:self-auto"
+              onClick={() => {
+                setSearchQuery('');
+                setFilterStage('all');
+                setCurrentPage(1);
+              }}
+            >
+              Réinitialiser
+            </Button>
           )}
-        </CardContent>
+          <p className="text-xs text-muted-foreground sm:ml-auto">
+            <span className="tabular font-medium text-foreground">{filteredPatients.length}</span>{' '}
+            patient{filteredPatients.length > 1 ? 's' : ''}
+            {patients && hasFilters ? ` sur ${patients.length}` : ''}
+          </p>
+        </div>
+
+        {isLoading ? (
+          <TableSkeleton />
+        ) : filteredPatients.length === 0 ? (
+          <EmptyState
+            icon={<Users />}
+            title={hasFilters ? 'Aucun patient trouvé' : 'Aucun patient pour le moment'}
+            description={
+              hasFilters
+                ? 'Essayez de modifier votre recherche ou le filtre de stade.'
+                : 'Ajoutez votre premier patient pour commencer le suivi.'
+            }
+            action={
+              hasFilters ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterStage('all');
+                  }}
+                >
+                  Effacer les filtres
+                </Button>
+              ) : (
+                <Button onClick={() => setAddEditDialogOpen(true)}>
+                  <UserPlus /> Ajouter un patient
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <>
+            {/* Vue tableau (≥ md) */}
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-5">Patient</TableHead>
+                    <TableHead>Dossier</TableHead>
+                    <TableHead>Âge / Sexe</TableHead>
+                    <TableHead>Stade MRC</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead className="w-12 pr-5 text-right">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedPatients.map((patient) => (
+                    <TableRow
+                      key={(patient as any)._id}
+                      className="cursor-pointer transition-colors hover:bg-muted/50"
+                      onClick={() => setLocation(`/patients/${(patient as any)._id}`)}
+                    >
+                      <TableCell className="pl-5">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar firstName={patient.user.firstName} lastName={patient.user.lastName} />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground">
+                              {patient.user.firstName} {patient.user.lastName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">{patient.user.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="tabular rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                          {patientCode(patient)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <p className="tabular text-foreground">{calculateAge(patient.birthDate)} ans</p>
+                        <p className="text-xs text-muted-foreground">{GENDER_LABELS[patient.gender] ?? patient.gender}</p>
+                      </TableCell>
+                      <TableCell>
+                        <StageBadge stage={patient.ckdStage} />
+                      </TableCell>
+                      <TableCell>
+                        <p className="tabular whitespace-nowrap text-foreground">{patient.phone || '—'}</p>
+                        <p className="max-w-[200px] truncate text-xs text-muted-foreground">
+                          {patient.address || 'Adresse non renseignée'}
+                        </p>
+                      </TableCell>
+                      <TableCell className="pr-5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <RowActions patient={patient} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Vue cartes (mobile) */}
+            <ul className="divide-y md:hidden">
+              {paginatedPatients.map((patient) => (
+                <li
+                  key={(patient as any)._id}
+                  className="flex cursor-pointer items-start gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+                  onClick={() => setLocation(`/patients/${(patient as any)._id}`)}
+                >
+                  <UserAvatar firstName={patient.user.firstName} lastName={patient.user.lastName} />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {patient.user.firstName} {patient.user.lastName}
+                      </p>
+                      <StageBadge stage={patient.ckdStage} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="tabular">{calculateAge(patient.birthDate)} ans</span> ·{' '}
+                      {GENDER_LABELS[patient.gender] ?? patient.gender} · {patientCode(patient)}
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {patient.phone && (
+                        <span className="tabular inline-flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {patient.phone}
+                        </span>
+                      )}
+                      {patient.address && (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3 w-3" /> {patient.address}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()} className="-mr-1">
+                    <RowActions patient={patient} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t px-5 py-3 sm:flex-row">
+                <p className="text-xs text-muted-foreground">
+                  <span className="tabular">
+                    {startIndex + 1}–{Math.min(startIndex + patientsPerPage, filteredPatients.length)}
+                  </span>{' '}
+                  sur <span className="tabular">{filteredPatients.length}</span> patients
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Page précédente"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const page = i + 1;
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'secondary' : 'ghost'}
+                        size="icon-sm"
+                        className={cn('tabular', currentPage === page && 'font-semibold')}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Page suivante"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
-      <AddEditDialog 
+      <AddEditDialog
         isOpen={addEditDialogOpen}
         onClose={() => {
           setAddEditDialogOpen(false);
@@ -300,6 +416,33 @@ export default function PatientsPage() {
         }}
         patient={selectedPatient}
       />
+
+      <AlertDialog open={!!patientToDelete} onOpenChange={(open) => !open && setPatientToDelete(undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce patient ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le dossier de{' '}
+              <span className="font-medium text-foreground">
+                {patientToDelete?.user.firstName} {patientToDelete?.user.lastName}
+              </span>{' '}
+              sera définitivement supprimé. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (patientToDelete) handleDeletePatient(patientToDelete);
+                setPatientToDelete(undefined);
+              }}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db } from './db';
-import { patients, doctors } from '../shared/schema';
+import { seedDatabase } from './seed';
 import { sql } from 'drizzle-orm';
 
 const app = express();
@@ -24,7 +24,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // Pas de corps pour /api/auth : il contient le jeton de session
+      if (capturedJsonResponse && !path.startsWith("/api/auth")) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -39,18 +40,6 @@ app.use((req, res, next) => {
   next();
 });
 
-async function seed() {
-  try {
-    console.log('🌱 Starting database seeding...');
-    await db.insert(doctors).values({ name: "Dr. House", specialty: "Nephrology", email: "house@hospital.com" });
-    await db.insert(patients).values({ name: "John Doe", age: 45, email: "john@doe.com" });
-    console.log('✅ Database seeded successfully');
-  } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    // Don't exit on seed error, just log it
-  }
-}
-
 // Test database connection before seeding
 async function testDatabaseConnection() {
   try {
@@ -64,9 +53,12 @@ async function testDatabaseConnection() {
   }
 }
 
-testDatabaseConnection().then((connected) => {
-  if (connected) {
-    seed();
+testDatabaseConnection().then(async (connected) => {
+  if (!connected) return;
+  try {
+    await seedDatabase();
+  } catch (error) {
+    console.error('❌ Error seeding database (avez-vous lancé "npm run db:push" ?):', error);
   }
 });
 
@@ -75,27 +67,22 @@ testDatabaseConnection().then((connected) => {
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    
-    // Log détaillé de l'erreur
-    console.error('\x1b[31m%s\x1b[0m', '🔴 ERROR:');
-    console.error('  Path:', req.path);
-    console.error('  Method:', req.method);
-    console.error('  Status:', status);
-    console.error('  Message:', message);
-    console.error('  Stack:', err.stack);
-    if (req.body) {
-      console.error('  Body:', JSON.stringify(req.body, null, 2));
-    }
-    console.error('  Time:', new Date().toISOString());
-    console.error('----------------------------------------');
+    const isServerError = status >= 500;
+    const message = isServerError && process.env.NODE_ENV === "production"
+      ? "Erreur interne du serveur"
+      : err.message || "Internal Server Error";
 
-    res.status(status).json({ 
-      message,
-      path: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    });
+    // Le corps de la requête n'est pas journalisé : il peut contenir des mots de passe
+    if (isServerError) {
+      console.error('🔴 ERROR:');
+      console.error('  Path:', req.method, req.path);
+      console.error('  Status:', status);
+      console.error('  Stack:', err.stack);
+      console.error('  Time:', new Date().toISOString());
+      console.error('----------------------------------------');
+    }
+
+    res.status(status).json({ message });
   });
 
   // importantly only setup vite in development and after
@@ -115,7 +102,8 @@ const port = parseInt(process.env.PORT || "5000", 10);
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
+    // reusePort n'est pas supporté sous Windows
+    reusePort: process.platform !== "win32",
   }, () => {
     log(`serving on port ${port}`);
   });

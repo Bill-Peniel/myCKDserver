@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2, Save, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -9,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader } from '@/components/ui/loader';
+import { StageBadge } from '@/components/kit';
+import { cn } from '@/lib/utils';
 import { PatientFormData, Patient } from '@/lib/types';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -24,15 +25,44 @@ interface AddEditDialogProps {
 }
 
 const formSchema = z.object({
-  firstName: z.string().min(2, { message: 'First name must be at least 2 characters' }),
-  lastName: z.string().min(2, { message: 'Last name must be at least 2 characters' }),
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Please enter a valid date (YYYY-MM-DD)' }),
-  gender: z.enum(['M', 'F', 'Autre'], { required_error: 'Please select a gender' }),
+  firstName: z.string().min(2, { message: 'Le prénom doit contenir au moins 2 caractères' }),
+  lastName: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
+  email: z.string().email({ message: 'Veuillez saisir une adresse email valide' }),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Veuillez saisir une date valide (AAAA-MM-JJ)' }),
+  gender: z.enum(['M', 'F', 'Autre'], { required_error: 'Veuillez sélectionner un sexe' }),
   address: z.string().optional(),
   phone: z.string().optional(),
-  ckdStage: z.enum(['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'], { required_error: 'Please select a CKD stage' }),
+  ckdStage: z.enum(['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'], { required_error: 'Veuillez sélectionner un stade MRC' }),
 });
+
+const GENDER_OPTIONS = [
+  { value: 'M', label: 'Homme' },
+  { value: 'F', label: 'Femme' },
+  { value: 'Autre', label: 'Autre' },
+];
+
+const STAGE_OPTIONS = [
+  { value: 'Stage 1', hint: 'DFG ≥ 90' },
+  { value: 'Stage 2', hint: 'DFG 60–89' },
+  { value: 'Stage 3A', hint: 'DFG 45–59' },
+  { value: 'Stage 3B', hint: 'DFG 30–44' },
+  { value: 'Stage 4', hint: 'DFG 15–29' },
+  { value: 'Stage 5', hint: 'DFG < 15' },
+];
+
+const GENDER_OPTION_CLASS = cn(
+  'flex h-9 cursor-pointer items-center gap-2 rounded-lg border bg-background px-3 text-sm font-normal shadow-xs transition-colors hover:bg-muted/50',
+  'has-[[data-state=checked]]:border-primary/60 has-[[data-state=checked]]:bg-primary/5',
+);
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 sm:col-span-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{children}</h3>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
 
 export default function AddEditDialog({ isOpen, onClose, patient }: AddEditDialogProps) {
   const { toast } = useToast();
@@ -78,18 +108,18 @@ export default function AddEditDialog({ isOpen, onClose, patient }: AddEditDialo
     },
     onSuccess: () => {
       toast({
-        title: 'Success',
-        description: 'Patient has been created successfully',
+        title: 'Patient créé',
+        description: 'Le nouveau patient a bien été enregistré.',
       });
       // Invalider les requêtes des patients et du dashboard
-      queryClient.invalidateQueries(['/api/patients']);
-      queryClient.invalidateQueries(['/api/dashboard/stats']);
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       onClose();
     },
     onError: (error) => {
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create patient',
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Impossible de créer le patient',
         variant: 'destructive',
       });
     }
@@ -101,18 +131,18 @@ export default function AddEditDialog({ isOpen, onClose, patient }: AddEditDialo
     },
     onSuccess: () => {
       toast({
-        title: 'Success',
-        description: 'Patient updated successfully',
+        title: 'Patient mis à jour',
+        description: 'Les informations du patient ont été enregistrées.',
       });
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient?._id}`] });
-      queryClient.invalidateQueries(['/api/patients']);
-      queryClient.invalidateQueries(['/api/dashboard/stats']);
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       onClose();
     },
     onError: (error) => {
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update patient',
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Impossible de mettre à jour le patient',
         variant: 'destructive',
       });
     }
@@ -126,221 +156,205 @@ export default function AddEditDialog({ isOpen, onClose, patient }: AddEditDialo
     }
   };
 
+  const isSaving = createPatientMutation.isPending || updatePatientMutation.isPending;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Modifier le Patient' : 'Ajouter un Nouveau Patient'}</DialogTitle>
-          <DialogDescription>
-            {isEditing 
-              ? 'Mettre à jour les informations de ce patient'
-              : 'Saisir les détails pour enregistrer un nouveau patient'
-            }
-          </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 [&_svg]:h-[18px] [&_svg]:w-[18px]">
+              {isEditing ? <Save /> : <UserPlus />}
+            </div>
+            <div className="space-y-1 text-left">
+              <DialogTitle>{isEditing ? 'Modifier le patient' : 'Ajouter un patient'}</DialogTitle>
+              <DialogDescription>
+                {isEditing
+                  ? 'Mettez à jour les informations de ce patient.'
+                  : 'Renseignez les informations pour enregistrer un nouveau patient.'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium">Informations Personnelles</h3>
-              <Separator className="my-4" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prénom</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Entrer le prénom" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SectionTitle>Identité</SectionTitle>
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Prénom</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex. Koffi" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nom</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Entrer le nom" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Nom</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex. Mensah" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="Enter email address" 
-                          {...field} 
-                          disabled={isEditing}
-                        />
-                      </FormControl>
-                      {isEditing && (
-                        <FormDescription>
-                          Email cannot be changed after registration
-                        </FormDescription>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="birthDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Birth Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="gender"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Genre</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          value={field.value}
-                          className="flex gap-4"
-                        >
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="M" />
-                            </FormControl>
-                            <FormLabel className="font-normal">Masculin</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="F" />
-                            </FormControl>
-                            <FormLabel className="font-normal">Féminin</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="Autre" />
-                            </FormControl>
-                            <FormLabel className="font-normal">Autre</FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-medium">Contact Information</h3>
-              <Separator className="my-4" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter phone number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="md:col-span-2">
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Enter full address" 
-                            className="resize-none" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="patient@exemple.com"
+                        {...field}
+                        disabled={isEditing}
+                      />
+                    </FormControl>
+                    {isEditing && (
+                      <FormDescription className="text-xs">
+                        L'email ne peut pas être modifié après l'inscription.
+                      </FormDescription>
                     )}
-                  />
-                </div>
-              </div>
-            </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div>
-              <h3 className="text-lg font-medium">Medical Information</h3>
-              <Separator className="my-4" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="ckdStage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CKD Stage</FormLabel>
-                      <Select 
+              <FormField
+                control={form.control}
+                name="birthDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Date de naissance</FormLabel>
+                    <FormControl>
+                      <Input type="date" className="dark:[color-scheme:dark]" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel className="text-[13px]">Sexe</FormLabel>
+                    <FormControl>
+                      <RadioGroup
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        value={field.value}
+                        className="grid grid-cols-3 gap-2"
                       >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select CKD stage" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Stage 1">Stage 1</SelectItem>
-                          <SelectItem value="Stage 2">Stage 2</SelectItem>
-                          <SelectItem value="Stage 3A">Stage 3A</SelectItem>
-                          <SelectItem value="Stage 3B">Stage 3B</SelectItem>
-                          <SelectItem value="Stage 4">Stage 4</SelectItem>
-                          <SelectItem value="Stage 5">Stage 5</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        {GENDER_OPTIONS.map((g) => (
+                          <FormItem key={g.value} className="space-y-0">
+                            <FormLabel className={GENDER_OPTION_CLASS}>
+                              <FormControl>
+                                <RadioGroupItem value={g.value} />
+                              </FormControl>
+                              {g.label}
+                            </FormLabel>
+                          </FormItem>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-              >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SectionTitle>Coordonnées</SectionTitle>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Téléphone</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="+229 01 00 00 00 00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel className="text-[13px]">Adresse</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Adresse complète (quartier, ville…)"
+                        className="min-h-[72px] resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SectionTitle>Informations médicales</SectionTitle>
+              <FormField
+                control={form.control}
+                name="ckdStage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[13px]">Stade MRC</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un stade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {STAGE_OPTIONS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            <span className="flex items-center gap-2">
+                              <StageBadge stage={s.value} />
+                              <span className="text-xs text-muted-foreground">{s.hint}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <DialogFooter className="gap-2 border-t pt-4 sm:gap-0">
+              <Button type="button" variant="outline" onClick={onClose}>
                 Annuler
               </Button>
-              <Button 
-                type="submit"
-                disabled={createPatientMutation.isPending || updatePatientMutation.isPending}
-              >
-                {(createPatientMutation.isPending || updatePatientMutation.isPending) && (
-                  <Loader color="white" size="sm" className="mr-2" />
-                )}
-                {isEditing ? 'Mettre à jour' : 'Créer le Patient'}
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" /> : isEditing ? <Save /> : <UserPlus />}
+                {isEditing ? 'Enregistrer' : 'Créer le patient'}
               </Button>
             </DialogFooter>
           </form>

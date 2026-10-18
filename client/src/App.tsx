@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -21,17 +21,21 @@ import AppointmentAdd from "@/pages/appointments/add";
 import NotificationsPage from "@/pages/notifications";
 import SettingsPage from "@/pages/settings";
 import LoginPage from "@/pages/auth/login";
-import RegisterPage from "@/pages/auth/register";
 import { useAuth, AuthProvider } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/app-layout";
 import Workflows from "@/pages/workflows";
-import ChatbotPage from "@/pages/chatbot"; // Import ChatbotPage component
+import ChatbotPage from "@/pages/chatbot";
 import LandingPage from "@/pages/landing";
+import { ThemeProvider } from "@/lib/theme";
+import { PageLoader } from "@/components/ui/loader";
 
 
-function ProtectedRoute({ component: Component, ...rest }: any) {
+// Les gardes reçoivent la page en `children` (élément stable) et non un composant créé
+// à la volée : sinon chaque nouveau rendu (ex. un toast) remonterait toute la page.
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, user } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,21 +54,19 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   }, [loading, isAuthenticated, user, setLocation, toast]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-    </div>;
+    return <PageLoader />;
   }
 
   if (!isAuthenticated || (user && user.role === 'patient')) {
     return null;
   }
 
-  return <Component {...rest} />;
+  return <AppLayout>{children}</AppLayout>;
 }
 
-function AdminRoute({ component: Component, ...rest }: any) {
+function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, user } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,194 +79,113 @@ function AdminRoute({ component: Component, ...rest }: any) {
           description: "Cette section est réservée à l'administrateur.",
           variant: "destructive",
         });
-        setLocation("/");
+        setLocation("/dashboard");
       }
     }
   }, [loading, isAuthenticated, user, setLocation, toast]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-    </div>;
+    return <PageLoader />;
   }
 
   if (!isAuthenticated || (user && user.role !== 'admin')) {
     return null;
   }
 
-  return <Component {...rest} />;
+  return <AppLayout isAdmin>{children}</AppLayout>;
 }
 
-function AuthRoute({ component: Component, ...rest }: any) {
-  const { isAuthenticated, loading } = useAuth();
-  const [location, setLocation] = useLocation();
+function AuthRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading, user } = useAuth();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      setLocation("/");
+      setLocation(user?.role === "admin" ? "/admin/dashboard" : "/dashboard");
     }
-  }, [loading, isAuthenticated, setLocation]);
+  }, [loading, isAuthenticated, user, setLocation]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-    </div>;
+    return <PageLoader />;
   }
 
   if (isAuthenticated) {
     return null;
   }
 
-  return <Component {...rest} />;
+  return <>{children}</>;
 }
 
 function Router() {
-  const { user } = useAuth();
-
   return (
     <Switch>
-      {/* Auth Routes */}
       <Route path="/">
         <LandingPage />
       </Route>
       <Route path="/login">
-        <AuthRoute component={LoginPage} />
+        <AuthRoute><LoginPage /></AuthRoute>
       </Route>
+      {/* Pas d'inscription publique : les comptes médecins sont créés par l'administrateur */}
       <Route path="/register">
-        <AuthRoute component={RegisterPage} />
+        <Redirect to="/login" />
       </Route>
 
-      {/* Admin Routes */}
+      {/* Espace administrateur */}
       <Route path="/admin">
-        <AdminRoute component={() => {
-          window.location.href = '/admin/dashboard';
-          return null;
-        }} />
+        <Redirect to="/admin/dashboard" />
       </Route>
       <Route path="/admin/dashboard">
-        <AdminRoute component={() => (
-          <AppLayout isAdmin>
-            <AdminDashboard />
-          </AppLayout>
-        )} />
+        <AdminRoute><AdminDashboard /></AdminRoute>
       </Route>
       <Route path="/admin/patients">
-        <AdminRoute component={() => (
-          <AppLayout isAdmin>
-            <AdminPatientsPage />
-          </AppLayout>
-        )} />
+        <AdminRoute><AdminPatientsPage /></AdminRoute>
       </Route>
       <Route path="/admin/doctors">
-        <AdminRoute component={() => (
-          <AppLayout isAdmin>
-            <AdminDoctorsPage />
-          </AppLayout>
-        )} />
+        <AdminRoute><AdminDoctorsPage /></AdminRoute>
       </Route>
 
-
-      {/* Protected Routes */}
+      {/* Espace médecin */}
       <Route path="/dashboard">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <Dashboard />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
       <Route path="/patients/add">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <PatientAddEdit />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><PatientAddEdit /></ProtectedRoute>
       </Route>
       <Route path="/patients/add-edit/:id">
-        {(params) => (
-          <ProtectedRoute component={() => (
-            <AppLayout>
-              <PatientAddEdit id={params.id} />
-            </AppLayout>
-          )} />
-        )}
+        {(params) => <ProtectedRoute><PatientAddEdit id={params.id} /></ProtectedRoute>}
       </Route>
-
       <Route path="/patients/:id">
-        {(params) => (
-          <ProtectedRoute component={() => (
-            <AppLayout>
-              <PatientDetails id={params.id} />
-            </AppLayout>
-          )} />
-        )}
+        {(params) => <ProtectedRoute><PatientDetails id={params.id} /></ProtectedRoute>}
       </Route>
-
       <Route path="/patients">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <PatientsPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><PatientsPage /></ProtectedRoute>
       </Route>
       <Route path="/lab-results/add">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <LabResultAdd />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><LabResultAdd /></ProtectedRoute>
       </Route>
       <Route path="/lab-results">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <LabResultsPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><LabResultsPage /></ProtectedRoute>
       </Route>
       <Route path="/appointments/add">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <AppointmentAdd />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><AppointmentAdd /></ProtectedRoute>
       </Route>
       <Route path="/appointments">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <AppointmentsPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><AppointmentsPage /></ProtectedRoute>
       </Route>
       <Route path="/notifications">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <NotificationsPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><NotificationsPage /></ProtectedRoute>
       </Route>
       <Route path="/settings">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <SettingsPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><SettingsPage /></ProtectedRoute>
       </Route>
       <Route path="/workflows">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <Workflows />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><Workflows /></ProtectedRoute>
       </Route>
-
       <Route path="/chatbot">
-        <ProtectedRoute component={() => (
-          <AppLayout>
-            <ChatbotPage />
-          </AppLayout>
-        )} />
+        <ProtectedRoute><ChatbotPage /></ProtectedRoute>
       </Route>
 
-      {/* Fallback to 404 */}
+      {/* 404 */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -272,12 +193,14 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router />
-        <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

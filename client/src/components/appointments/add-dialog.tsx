@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, CalendarPlus, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader } from '@/components/ui/loader';
-import { Patient, AppointmentFormData } from '@/lib/types';
+import { UserAvatar } from '@/components/kit';
+import { cn } from '@/lib/utils';
 import { apiRequest } from '@/lib/queryClient';
 
 const formSchema = z.object({
@@ -20,6 +23,19 @@ const formSchema = z.object({
   appointmentTime: z.string().regex(/^\d{2}:\d{2}$/, { message: 'Veuillez entrer une heure valide (HH:MM)' }),
   purpose: z.string().optional(),
 });
+
+type AppointmentFormValues = z.infer<typeof formSchema>;
+
+const TIME_SLOTS = ['08:30', '09:00', '10:30', '14:00', '15:30'];
+
+// Prochain créneau par défaut : aujourd'hui 09:00, ou demain si l'heure est passée (date locale)
+function defaultSlot() {
+  const d = new Date();
+  if (d.getHours() >= 9) d.setDate(d.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return { appointmentDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, appointmentTime: '09:00' };
+}
+const PURPOSES = ['Suivi trimestriel', 'Bilan sanguin', 'Résultats d\'analyses', 'Consultation de contrôle'];
 
 interface AddAppointmentDialogProps {
   isOpen: boolean;
@@ -30,34 +46,32 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: patients, isLoading: patientsLoading } = useQuery<Patient[]>({
+  const { data: patients, isLoading: patientsLoading } = useQuery<any[]>({
     queryKey: ['/api/patients'],
   });
 
-  const form = useForm<AppointmentFormData>({
+  const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       patientId: '',
-      appointmentDate: new Date().toISOString().split('T')[0],
-      appointmentTime: '09:00',
+      ...defaultSlot(),
       purpose: '',
     },
   });
 
-  // Reset form when dialog is closed
+  // Réinitialise le formulaire à la fermeture
   useEffect(() => {
     if (!isOpen) {
       form.reset({
         patientId: '',
-        appointmentDate: new Date().toISOString().split('T')[0],
-        appointmentTime: '09:00',
+        ...defaultSlot(),
         purpose: ''
       });
     }
   }, [isOpen, form]);
 
   const createAppointmentMutation = useMutation({
-    mutationFn: async (data: AppointmentFormData) => {
+    mutationFn: async (data: AppointmentFormValues) => {
       // Validation des données
       if (!data.patientId) {
         throw new Error('Veuillez sélectionner un patient');
@@ -72,8 +86,6 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
         throw new Error('Veuillez indiquer le motif du rendez-vous');
       }
 
-      console.log('Patient sélectionné:', data.patientId);
-
       const dateTime = new Date(`${data.appointmentDate}T${data.appointmentTime}`);
 
       // Vérifier si la date est dans le passé
@@ -81,19 +93,17 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
         throw new Error('La date du rendez-vous ne peut pas être dans le passé');
       }
 
-      // Envoyer la requête avec l'ID MongoDB
       const response = await apiRequest('POST', '/api/appointments', {
-        patientId: data.patientId, // Utiliser l'ID MongoDB directement
+        patientId: data.patientId,
         appointmentDate: dateTime.toISOString(),
         purpose: data.purpose.trim()
       });
 
-      console.log('Réponse du serveur:', response);
       return response;
     },
     onSuccess: () => {
       toast({
-        title: 'Succès',
+        title: 'Rendez-vous programmé',
         description: 'Le rendez-vous a été programmé avec succès',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
@@ -109,7 +119,7 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
     }
   });
 
-  const onSubmit = (data: AppointmentFormData) => {
+  const onSubmit = (data: AppointmentFormValues) => {
     createAppointmentMutation.mutate(data);
   };
 
@@ -120,51 +130,58 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
 
   const watchDate = form.watch('appointmentDate');
   const watchTime = form.watch('appointmentTime');
+  const watchPurpose = form.watch('purpose');
+
+  const preview = new Date(`${watchDate}T${watchTime}`);
+  const previewValid = !Number.isNaN(preview.getTime());
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
+          <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+            <CalendarPlus className="h-[18px] w-[18px]" />
+          </div>
           <DialogTitle>Programmer un rendez-vous</DialogTitle>
           <DialogDescription>
-            Programmer un nouveau rendez-vous pour un patient
+            Planifiez une consultation avec l'un de vos patients.
           </DialogDescription>
         </DialogHeader>
 
         {patientsLoading ? (
-          <div className="h-60 flex items-center justify-center">
-            <Loader size="lg" />
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ))}
+            <Skeleton className="h-24 w-full" />
           </div>
         ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="patientId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Patient</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <FormLabel className="text-[13px]">Patient</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Sélectionner un patient" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {patients?.map((patient) => {
-                          console.log('Patient dans la liste:', patient._id);
-                          return (
-                            <SelectItem 
-                              key={patient._id} 
-                              value={patient._id.toString()}
-                            >
-                              {`${patient.user.firstName} ${patient.user.lastName} (${patient._id})`}
-                            </SelectItem>
-                          );
-                        })}
+                        {patients?.map((patient) => (
+                          <SelectItem key={patient._id} value={patient._id.toString()}>
+                            <span className="flex items-center gap-2">
+                              <UserAvatar firstName={patient.user.firstName} lastName={patient.user.lastName} size="xs" />
+                              {patient.user.firstName} {patient.user.lastName}
+                            </span>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -178,9 +195,9 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
                   name="appointmentDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date</FormLabel>
+                      <FormLabel className="text-[13px]">Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input type="date" className="dark:[color-scheme:dark]" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -192,9 +209,9 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
                   name="appointmentTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Heure</FormLabel>
+                      <FormLabel className="text-[13px]">Heure</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <Input type="time" className="dark:[color-scheme:dark]" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -202,13 +219,29 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
                 />
               </div>
 
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">Créneaux :</span>
+                {TIME_SLOTS.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => form.setValue('appointmentTime', slot, { shouldValidate: true })}
+                    className={cn(
+                      'tabular rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+                      watchTime === slot
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
+                    )}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+
               {isPastDate(watchDate, watchTime) && (
-                <div className="rounded-md bg-yellow-50 p-4">
-                  <div className="flex">
-                    <div className="text-yellow-700">
-                      <p>Attention : Vous programmez un rendez-vous dans le passé.</p>
-                    </div>
-                  </div>
+                <div className="flex items-start gap-2.5 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2.5 text-[13px] text-warning">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>Attention : vous programmez un rendez-vous dans le passé.</p>
                 </div>
               )}
 
@@ -217,37 +250,60 @@ export default function AddAppointmentDialog({ isOpen, onClose }: AddAppointment
                 name="purpose"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Motif</FormLabel>
+                    <FormLabel className="text-[13px]">Motif</FormLabel>
                     <FormControl>
-                      <Textarea 
+                      <Textarea
                         placeholder="Décrivez le motif de ce rendez-vous"
-                        className="resize-none h-24"
+                        className="h-20 resize-none"
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>
-                      Incluez tous les détails pertinents concernant le motif du rendez-vous.
-                    </FormDescription>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PURPOSES.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => form.setValue('purpose', p, { shouldValidate: true })}
+                          className={cn(
+                            'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                            watchPurpose === p
+                              ? 'border-primary/30 bg-primary/10 text-primary'
+                              : 'bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
+                          )}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                >
+              <div className="flex items-center gap-2.5 rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                <Mail className="h-4 w-4 shrink-0" />
+                <p>
+                  {previewValid ? (
+                    <>
+                      Le{' '}
+                      <span className="font-medium text-foreground">
+                        {preview.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à{' '}
+                        {preview.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {' '}· le patient recevra un e-mail de confirmation.
+                    </>
+                  ) : (
+                    'Le patient recevra un e-mail de confirmation.'
+                  )}
+                </p>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={onClose}>
                   Annuler
                 </Button>
-                <Button 
-                  type="submit"
-                  disabled={createAppointmentMutation.isPending}
-                >
-                  {createAppointmentMutation.isPending && (
-                    <Loader color="white" size="sm" className="mr-2" />
-                  )}
+                <Button type="submit" disabled={createAppointmentMutation.isPending}>
+                  {createAppointmentMutation.isPending && <Loader color="white" size="sm" />}
                   Programmer le rendez-vous
                 </Button>
               </DialogFooter>

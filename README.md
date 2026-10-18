@@ -41,33 +41,44 @@ Alertes par e-mail.
 
 Technologies utilisées
 
-Frontend : React.js
+Frontend : React.js (Vite, TanStack Query, shadcn/ui)
 
 Backend : Node.js (Express)
 
-Base de données : MongoDB
+Base de données : PostgreSQL hébergé sur Neon, via l'ORM Drizzle
 
-Sécurité : Authentification JWT, chiffrement des données sensibles
+Sécurité : sessions stockées en base + jetons JWT, mots de passe hachés (bcrypt), accès par rôle (médecin / admin)
 
 
 Installation
 
 1. Cloner le dépôt :
 
-git clone https://github.com/Dyanoscharbel/Chronic.git
-cd chonic
-
-
-2. Backend :
+git clone https://github.com/Bill-Peniel/myCKDserver.git
+cd myCKDserver
 npm install
+
+
+2. Configuration :
+
+Copier .env.example vers .env et renseigner au minimum DATABASE_URL (chaîne de connexion Neon),
+SESSION_SECRET, ADMIN_EMAIL et ADMIN_PASSWORD.
+
+
+3. Créer les tables dans la base Neon :
+
+npm run db:push
+
+
+4. Lancer l'application (API + frontend sur http://localhost:5000) :
+
 npm run dev
 
-
-3. Frontend :
-npm install
-npm run dev
-
-
+Au premier démarrage, le catalogue des tests de laboratoire est inséré et le compte
+administrateur défini par ADMIN_EMAIL / ADMIN_PASSWORD est créé s'il n'existe aucun admin.
+Il n'y a pas d'inscription publique : l'administrateur crée les comptes médecins depuis
+l'espace d'administration. Un mot de passe temporaire est généré et envoyé au médecin par
+e-mail (EMAIL_USER / EMAIL_PASS). Si l'envoi échoue, il est affiché une seule fois à l'admin.
 
 
 Tests
@@ -96,14 +107,6 @@ Intégration de modèles prédictifs basés sur l’IA.
 
 Tableau de bord médical avec KPIs et visualisations.
 
-compte  ADMIN de l'application
-admin@admin.com
-admin2024
-
-
-compte d'un mmedecin
-sannicharbel@gmail.com 
-1234567
 Auteurs
 
 SANNI Charbel

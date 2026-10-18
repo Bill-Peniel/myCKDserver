@@ -1,157 +1,111 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { cn, getAvatarColor } from '@/lib/utils';
-import { Menu, Search, Bell, Settings, LogOut } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Notification } from '@/lib/types';
-import { t } from '@/lib/i18n'; // Added import for translations
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Bell, CheckCheck, ChevronRight, Menu, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SeverityBadge, ThemeToggle } from "@/components/kit";
+import { cn, getTimeAgo } from "@/lib/utils";
+import { findNavItem } from "./nav";
 
 interface HeaderProps {
-  toggleSidebar: () => void;
-  user: any;
+  admin?: boolean;
+  onOpenMobileNav: () => void;
+  onOpenCommand: () => void;
 }
 
-export function Header({ toggleSidebar, user }: HeaderProps) {
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const { data } = useQuery<{ notifications: Notification[] }>({
-    queryKey: ['/api/notifications'],
-    enabled: !!user,
-  });
-
-  const unreadNotifications = data?.notifications?.filter(n => !n.isRead).length || 0;
-
-  const handleLogout = async () => {
-    try {
-      await apiRequest('POST', '/api/auth/logout', {});
-      localStorage.removeItem('auth');
-      queryClient.clear();
-      toast({
-        title: "Déconnexion réussie",
-      });
-      // Force la redirection et le rechargement
-      window.location.href = '/login';
-      window.location.reload();
-    } catch (error) {
-      toast({
-        title: "Erreur lors de la déconnexion",
-        description: "Veuillez réessayer",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setLocation(`/patients?search=${encodeURIComponent(searchQuery)}`);
-    }
-  };
+function NotificationsPopover() {
+  const { data } = useQuery<{ notifications: any[] }>({ queryKey: ["/api/notifications"] });
+  const notifications = data?.notifications ?? [];
+  const unread = notifications.filter((n) => !n.isRead);
 
   return (
-    <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
-      <button 
-        className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:bg-gray-100 focus:text-gray-600 md:hidden"
-        onClick={toggleSidebar}
-      >
-        <Menu className="h-6 w-6" />
-      </button>
-
-      <div className="flex-1 px-4 flex items-center justify-between">
-        <div className="flex-1 flex justify-center max-w-2xl mx-auto">
-          <form className="w-full flex" onSubmit={handleSearch}>
-            <label htmlFor="search-field" className="sr-only">Search</label>
-            <div className="relative w-full text-gray-400 focus-within:text-gray-600">
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-primary" />
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground" aria-label="Notifications">
+          <Bell />
+          {unread.length > 0 && (
+            <span className="absolute right-2 top-2 flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-primary" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[360px] p-0">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold">Notifications</p>
+            <p className="text-xs text-muted-foreground">
+              {unread.length > 0 ? `${unread.length} non lue${unread.length > 1 ? "s" : ""}` : "Tout est à jour"}
+            </p>
+          </div>
+          <CheckCheck className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="max-h-80 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Aucune notification</p>
+          ) : (
+            notifications.slice(0, 6).map((n) => (
+              <div key={n._id} className={cn("flex gap-3 border-b px-4 py-3 last:border-0", !n.isRead && "bg-primary/[0.03]")}>
+                <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.isRead ? "bg-transparent" : "bg-primary")} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="line-clamp-2 text-[13px] leading-snug text-foreground">{n.message}</p>
+                  <div className="flex items-center gap-2">
+                    <SeverityBadge severity={n.severity} />
+                    <span className="text-xs text-muted-foreground">{getTimeAgo(n.createdAt)}</span>
+                  </div>
+                </div>
               </div>
-              <Input 
-                id="search-field"
-                className="block w-full h-10 pl-10 pr-4 bg-background/50 border border-primary/20 rounded-full text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/30 focus-visible:border-primary/40 transition-colors"
-                placeholder="Rechercher patients, tests..."
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </form>
+            ))
+          )}
         </div>
-
-        <div className="ml-4 flex items-center md:ml-6">
-          {/* Notification Dropdown */}
-          <div className="relative">
-            <Link href="/notifications">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="p-1 text-gray-400 rounded-full hover:bg-gray-100 hover:text-gray-500 focus:outline-none"
-              >
-                <span className="sr-only">View notifications</span>
-                <Bell className="h-6 w-6" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500"></span>
-                )}
-              </Button>
-            </Link>
-          </div>
-
-          {/* Profile dropdown */}
-          <div className="ml-3 relative">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  className="max-w-xs flex items-center text-sm rounded-full focus:outline-none"
-                >
-                  <span className="sr-only">Open user menu</span>
-                  <div className="rounded-full p-[2px] bg-primary">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-background text-primary">
-                        {user?.firstName && user?.lastName ? `${user.firstName[0]}${user.lastName[0]}` : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1.5">
-                    <p className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-xs text-muted-foreground font-medium">{user?.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="my-2" />
-                <DropdownMenuItem asChild className="cursor-pointer gap-3 py-2">
-                  <Link href="/settings" className="flex items-center">
-                    <Settings className="h-4 w-4" /> 
-                    <span>Paramètres</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer gap-3 py-2 text-red-500 hover:text-red-600 focus:text-red-600">
-                  <LogOut className="h-4 w-4" />
-                  <span>Déconnexion</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        <div className="border-t p-2">
+          <Button asChild variant="ghost" size="sm" className="w-full">
+            <Link href="/notifications">Voir toutes les notifications</Link>
+          </Button>
         </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function Header({ admin = false, onOpenMobileNav, onOpenCommand }: HeaderProps) {
+  const [location] = useLocation();
+  const current = findNavItem(location, admin);
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+  return (
+    <header className="glass sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 sm:px-6">
+      <Button variant="ghost" size="icon" className="-ml-2 md:hidden" onClick={onOpenMobileNav} aria-label="Ouvrir le menu">
+        <Menu />
+      </Button>
+
+      {/* Fil d'Ariane */}
+      <nav className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex" aria-label="Fil d'Ariane">
+        <span className="text-muted-foreground">{admin ? "Administration" : "Espace médecin"}</span>
+        {current && (
+          <>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <span className="truncate font-medium text-foreground">{current.label}</span>
+          </>
+        )}
+      </nav>
+
+      <div className="ml-auto flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onOpenCommand}
+          className="group flex h-9 items-center gap-2 rounded-lg border bg-background px-3 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-foreground sm:w-64"
+        >
+          <Search className="h-4 w-4" />
+          <span className="hidden sm:inline">Rechercher…</span>
+          <kbd className="ml-auto hidden h-5 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium sm:inline-flex">
+            {isMac ? "⌘" : "Ctrl"} K
+          </kbd>
+        </button>
+        <ThemeToggle />
+        {!admin && <NotificationsPopover />}
       </div>
-    </div>
+    </header>
   );
 }

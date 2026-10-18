@@ -1,183 +1,137 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { User, Users, Calendar, FileText, AlertTriangle, Settings, Plus } from 'lucide-react';
-import { StatsCard } from '@/components/dashboard/stats-card';
-import { ChartCard } from '@/components/dashboard/chart-card';
-
-import { LabResultsList } from '@/components/dashboard/appointments-list';
-import { AlertsList } from '@/components/dashboard/alerts-list';
+import { AlertTriangle, CalendarDays, FlaskConical, Plus, UserPlus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader, StatCard } from '@/components/kit';
+import { StageChart } from '@/components/dashboard/stage-chart';
+import { DfgTrendChart } from '@/components/dashboard/dfg-trend-chart';
+import { RecentAlerts, RecentLabResults, UpcomingAppointments } from '@/components/dashboard/activity-lists';
 import { WorkflowModal } from '@/components/dashboard/workflow-modal';
-import { Loader } from '@/components/ui/loader';
-import { DashboardStats, Patient, Appointment, Alert } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
+import { DashboardStats } from '@/lib/types';
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bonjour';
+  if (h < 18) return 'Bon après-midi';
+  return 'Bonsoir';
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-14 w-72" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[138px] rounded-xl" />)}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-80 rounded-xl lg:col-span-3" />
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
-  const [period, setPeriod] = useState('3M');
 
-  const { data: dashboardStats, isLoading: statsLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats & { totalAppointments: number }>({
     queryKey: ['/api/dashboard/stats'],
-    refetchInterval: 5000, // Rafraîchit toutes les 5 secondes
+    refetchInterval: 15000,
   });
 
-  const { data: notificationsData, isLoading: notificationsLoading } = useQuery<{ notifications: any[], criticalCount: number }>({
+  const { data: notificationsData, isLoading: notificationsLoading } = useQuery<{ notifications: any[]; criticalCount: number }>({
     queryKey: ['/api/notifications'],
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
-  const { data: upcomingAppointments, isLoading: appointmentsLoading, error: appointmentsError } = useQuery<Appointment[]>({
+  const { data: upcomingAppointments = [] } = useQuery<any[]>({
     queryKey: ['/api/dashboard/upcoming-appointments'],
-    refetchInterval: 5000,
-    onSuccess: (data) => console.log("Appointments fetched successfully:", data),
-    onError: (error) => console.error("Error fetching appointments:", error)
+    refetchInterval: 30000,
   });
 
-  const { data: labResults } = useQuery<any[]>({
+  const { data: labResults = [] } = useQuery<any[]>({
     queryKey: ['/api/patient-lab-results'],
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
-  // Calculer les données de tendance DFG
-  const [startDate, setStartDate] = useState<string>(
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    );
-    const [endDate, setEndDate] = useState<string>(
-      new Date().toISOString().split('T')[0]
-    );
-
-    const [selectedPeriod, setSelectedPeriod] = useState({ startDate, endDate });
-
-const dfgTrendData = useMemo(() => {
-    if (!labResults || !selectedPeriod.startDate || !selectedPeriod.endDate) return [];
-
-    const dfgResults = labResults.filter(result => 
-      result.labTest?.testName?.toLowerCase().includes('dfg')
-    );
-
-    const start = new Date(selectedPeriod.startDate);
-    const end = new Date(selectedPeriod.endDate);
-
-    // Filtrer les résultats par période
-    const filteredResults = dfgResults
-      .filter(result => {
-        const resultDate = new Date(result.resultDate);
-        return resultDate >= start && resultDate <= end;
-      })
-      .sort((a, b) => new Date(a.resultDate).getTime() - new Date(b.resultDate).getTime());
-
-    return filteredResults.map(result => ({
-      month: new Date(result.resultDate).toLocaleDateString(),
-      value: result.resultValue
-    }));
-  }, [labResults, selectedPeriod]);
-
-const handlePeriodChange = (period: { startDate?: string; endDate?: string }) => {
-  setStartDate(period.startDate || startDate);
-  setEndDate(period.endDate || endDate);
-};
-
-const handlePeriodValidation = () => {
-  setSelectedPeriod({ startDate, endDate });
-};
-
-  if (statsLoading || appointmentsLoading || notificationsLoading) {
-    return (
-      <div className="flex flex-col space-y-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <div className="h-96 flex items-center justify-center">
-          <Loader size="lg" />
-        </div>
-      </div>
-    );
+  if (statsLoading || notificationsLoading) {
+    return <DashboardSkeleton />;
   }
 
+  const notifications = notificationsData?.notifications ?? [];
+  const unread = notifications.filter((n) => !n.isRead).length;
+  const critical = notificationsData?.criticalCount ?? 0;
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
-    <div className="flex flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <Button 
-          onClick={() => setWorkflowModalOpen(true)}
-          className="flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Créer un Workflow</span>
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          icon={<User className="text-black h-6 w-6" />}
-          iconBgColor="bg-white"
-          title="Total Patients"
-          value={dashboardStats?.totalPatients || 0}
-          footerLink="/patients"
-          footerText="Voir tous les patients"
-          footerLinkColor="text-primary hover:text-primary-dark"
-        />
-
-        <StatsCard
-          icon={<Calendar className="h-6 w-6 text-white" />}
-          iconBgColor="bg-indigo-500"
-          title="Rendez-vous total"
-          value={dashboardStats?.totalAppointments || 0}
-          footerLink="/appointments"
-          footerText="Voir tous les rendez-vous"
-          footerLinkColor="text-indigo-600 hover:text-indigo-500"
-        />
-
-        <StatsCard
-          icon={<AlertTriangle className="h-6 w-6 text-white" />}
-          iconBgColor="bg-yellow-500"
-          title="Notifications non lues"
-          value={notificationsData?.notifications?.filter(n => !n.isRead)?.length || 0}
-          footerLink="/notifications"
-          footerText="Voir toutes les alertes"
-          footerLinkColor="text-yellow-600 hover:text-yellow-500"
-        />
-
-        <StatsCard
-          icon={<FileText className="h-6 w-6 text-white" />}
-          iconBgColor="bg-green-500"
-          title="Résultats de laboratoire"
-          value={labResults?.length || 0}
-          footerLink="/lab-results"
-          footerText="Voir tous les résultats"
-          footerLinkColor="text-green-600 hover:text-green-500"
-        />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard
-          title="Distribution des stades MRC des patients"
-          type="pie"
-          data={dashboardStats?.stageDistribution || {}}
-        />
-
-        <ChartCard
-          title="Tendance moyenne du DFG"
-          type="line"
-          data={dfgTrendData}
-          period={{ startDate, endDate }}
-          onPeriodChange={handlePeriodChange}
-          onPeriodValidate={handlePeriodValidation}
-        />
-      </div>
-
-
-
-      {/* Appointments and Alerts */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <LabResultsList />
-        <AlertsList notifications={notificationsData?.notifications?.slice(0, 5) || []} />
-      </div>
-
-      {/* Workflow Modal */}
-      <WorkflowModal 
-        isOpen={workflowModalOpen} 
-        onClose={() => setWorkflowModalOpen(false)} 
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={today}
+        title={`${greeting()}, Dr. ${user?.lastName ?? ''}`}
+        description="Voici l'état de vos patients aujourd'hui."
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/patients/add"><UserPlus /> Nouveau patient</Link>
+            </Button>
+            <Button onClick={() => setWorkflowModalOpen(true)}>
+              <Plus /> Créer un workflow
+            </Button>
+          </>
+        }
       />
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatCard
+          label="Patients suivis"
+          value={stats?.totalPatients ?? 0}
+          icon={<Users />}
+          tone="primary"
+          hint="Dossiers actifs"
+          href="/patients"
+        />
+        <StatCard
+          label="Rendez-vous à venir"
+          value={stats?.upcomingAppointments ?? 0}
+          icon={<CalendarDays />}
+          tone="info"
+          hint={`${stats?.totalAppointments ?? 0} au total`}
+          href="/appointments"
+        />
+        <StatCard
+          label="Alertes non lues"
+          value={unread}
+          icon={<AlertTriangle />}
+          tone={critical > 0 ? 'destructive' : 'warning'}
+          hint={critical > 0 ? `${critical} critique${critical > 1 ? 's' : ''} à traiter` : 'Aucune alerte critique'}
+          href="/notifications"
+        />
+        <StatCard
+          label="Résultats de labo"
+          value={labResults.length}
+          icon={<FlaskConical />}
+          tone="violet"
+          hint="Analyses enregistrées"
+          href="/lab-results"
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <StageChart data={stats?.stageDistribution ?? {}} className="lg:col-span-2" />
+        <DfgTrendChart labResults={labResults} className="lg:col-span-3" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <RecentLabResults labResults={labResults} />
+        <RecentAlerts notifications={notifications} />
+        <UpcomingAppointments appointments={upcomingAppointments} />
+      </div>
+
+      <WorkflowModal isOpen={workflowModalOpen} onClose={() => setWorkflowModalOpen(false)} />
     </div>
   );
 }

@@ -90,7 +90,7 @@ export function determineCKDStage(dfg: number): string {
   return 'Stage 5';
 }
 
-export function calculateCreatinine(egfr: number, age: number = 50, isFemale: boolean = false): number {
+export function calculateCreatinine(egfr: number, age: number = 50, isFemale: boolean = false, isBlack: boolean = false): number {
   // Reverse calculation from MDRD formula
   let creatinine = 175 * Math.pow(egfr, -1.154) * Math.pow(age, -0.203);
   

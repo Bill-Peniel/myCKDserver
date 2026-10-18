@@ -1,37 +1,81 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { Mail, MoreHorizontal, Pencil, Plus, Trash2, TriangleAlert, Users } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader } from '@/components/ui/loader';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState, PageHeader, SearchInput, StageBadge, UserAvatar } from '@/components/kit';
 import { apiRequest } from '@/lib/queryClient';
-import { PlusCircle, Trash2, Edit, Search } from 'lucide-react';
+import { calculateAge, getCKDStageLabel } from '@/lib/utils';
 
 import AdminPatientDialog from '@/components/admin/patient-dialog';
 
+const STAGES = ['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'];
+const GENDER: Record<string, string> = { M: 'Homme', F: 'Femme', Autre: 'Autre' };
+
+function TableSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex gap-3 border-b p-4">
+        <Skeleton className="h-9 w-full max-w-sm" />
+        <Skeleton className="h-9 w-40" />
+      </div>
+      <div className="divide-y">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+            <Skeleton className="hidden h-4 w-32 md:block" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 export default function AdminPatientsPage() {
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [addEditDialogOpen, setAddEditDialogOpen] = useState(false); // Added state for the dialog
+  const [stageFilter, setStageFilter] = useState('all');
+  const [addEditDialogOpen, setAddEditDialogOpen] = useState(false);
 
   const { data: patients, isLoading, refetch } = useQuery({
     queryKey: ['admin-patients'],
     queryFn: () => apiRequest('GET', '/api/admin/patients').then(res => res.json())
   });
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const handleDelete = async (patientId: string) => {
     try {
       await apiRequest('DELETE', `/api/admin/patients/${patientId}`);
       await refetch();
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       setIsDeleteDialogOpen(false);
+      toast({ title: 'Patient supprimé', description: 'Le dossier et ses données ont été supprimés.' });
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      toast({
+        title: 'Suppression impossible',
+        description: error instanceof Error ? error.message : 'Veuillez réessayer',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -44,120 +88,201 @@ export default function AdminPatientsPage() {
     );
   });
 
-  if (isLoading) {
-    return (
-      <div className="h-96 flex items-center justify-center">
-        <Loader size="lg" />
-      </div>
-    );
-  }
+  const visible: any[] = (filteredPatients ?? []).filter(
+    (p: any) => stageFilter === 'all' || p.ckdStage === stageFilter,
+  );
+  const total = patients?.length ?? 0;
+  const isFiltering = searchQuery.trim() !== '' || stageFilter !== 'all';
+
+  const openCreate = () => {
+    setSelectedPatient(undefined);
+    setAddEditDialogOpen(true);
+  };
+  const openEdit = (patient: any) => {
+    setAddEditDialogOpen(true);
+    setSelectedPatient(patient);
+  };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">Gestion des Patients</h1>
-        <Button onClick={() => setAddEditDialogOpen(true)}> {/* Open the admin dialog */}
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Ajouter un patient
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Administration"
+        title="Patients"
+        description="Tous les dossiers patients, leur stade et leur médecin référent."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus /> Ajouter un patient
+          </Button>
+        }
+      />
 
-      <Card className="mt-6">
-        <CardHeader className="pb-4">
-          <CardTitle>Liste des Patients</CardTitle>
-          <div className="mt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                type="search"
-                placeholder="Rechercher un patient..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Patient</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Médecin Traitant</TableHead>
-                  <TableHead>Stade CKD</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients?.map((patient: any) => (
-                  <TableRow key={patient._id}>
-                    <TableCell className="font-medium">
-                      {patient.user.firstName} {patient.user.lastName}
-                    </TableCell>
-                    <TableCell>{patient.user.email}</TableCell>
-                    <TableCell>
-                      {patient.doctor?.user ? (
-                        `Dr. ${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`
-                      ) : (
-                        <span className="text-gray-400">Non assigné</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        Stade {patient.ckdStage}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => {setAddEditDialogOpen(true); setSelectedPatient(patient);}}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedPatient(patient);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+      {isLoading ? (
+        <TableSkeleton />
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
+            <SearchInput
+              placeholder="Rechercher par nom ou e-mail…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="sm:max-w-sm"
+            />
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="sm:w-44">
+                <SelectValue placeholder="Stade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les stades</SelectItem>
+                {STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>{getCKDStageLabel(s)}</SelectItem>
                 ))}
-              </TableBody>
-            </Table>
+              </SelectContent>
+            </Select>
+            <p className="tabular text-xs text-muted-foreground sm:ml-auto">
+              {visible.length} patient{visible.length > 1 ? 's' : ''}
+              {isFiltering && ` sur ${total}`}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+
+          {visible.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title={isFiltering ? 'Aucun patient trouvé' : 'Aucun patient'}
+              description={isFiltering ? 'Modifiez la recherche ou le filtre de stade.' : 'Créez un premier dossier patient.'}
+              action={
+                isFiltering ? (
+                  <Button variant="outline" onClick={() => { setSearchQuery(''); setStageFilter('all'); }}>
+                    Réinitialiser les filtres
+                  </Button>
+                ) : (
+                  <Button onClick={openCreate}><Plus /> Ajouter un patient</Button>
+                )
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patient</TableHead>
+                    <TableHead className="hidden sm:table-cell">Âge</TableHead>
+                    <TableHead className="hidden md:table-cell">Médecin référent</TableHead>
+                    <TableHead className="hidden sm:table-cell">Stade</TableHead>
+                    <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visible.map((patient: any) => {
+                    const age = patient.age ?? (patient.birthDate ? calculateAge(patient.birthDate) : null);
+                    return (
+                      <TableRow key={patient._id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(patient)}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <UserAvatar firstName={patient.user.firstName} lastName={patient.user.lastName} />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {patient.user.firstName} {patient.user.lastName}
+                              </p>
+                              <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {patient.user.email}
+                              </p>
+                              <StageBadge stage={patient.ckdStage} className="mt-1.5 sm:hidden" />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <span className="tabular">{age != null ? `${age} ans` : '—'}</span>
+                          {patient.gender && (
+                            <span className="block text-xs text-muted-foreground">{GENDER[patient.gender] ?? patient.gender}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {patient.doctor?.user ? (
+                            <div className="flex items-center gap-2">
+                              <UserAvatar firstName={patient.doctor.user.firstName} lastName={patient.doctor.user.lastName} size="xs" />
+                              <div className="min-w-0">
+                                <p className="truncate text-[13px]">
+                                  Dr. {patient.doctor.user.firstName} {patient.doctor.user.lastName}
+                                </p>
+                                {patient.doctor.specialty && (
+                                  <p className="truncate text-xs text-muted-foreground">{patient.doctor.specialty}</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
+                              Non assigné
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <StageBadge stage={patient.ckdStage} />
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-sm" aria-label="Actions">
+                                <MoreHorizontal />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => openEdit(patient)}>
+                                <Pencil /> Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                onClick={() => {
+                                  setSelectedPatient(patient);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 /> Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="flex-row items-start gap-4 space-y-0 text-left">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20">
+              <TriangleAlert className="h-5 w-5" />
+            </span>
+            <div className="space-y-1.5">
+              <DialogTitle>Supprimer ce patient ?</DialogTitle>
+              <DialogDescription>
+                {selectedPatient?.user
+                  ? `Le dossier de ${selectedPatient.user.firstName} ${selectedPatient.user.lastName} et ses données associées seront définitivement supprimés. `
+                  : ''}
+                Cette action est irréversible.
+              </DialogDescription>
+            </div>
           </DialogHeader>
-          <Alert>
-            <AlertDescription>
-              Êtes-vous sûr de vouloir supprimer ce patient ? Cette action est irréversible.
-            </AlertDescription>
-          </Alert>
-          <div className="flex justify-end space-x-2 mt-4">
+          <DialogFooter className="gap-2 sm:space-x-0">
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Annuler
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={() => selectedPatient && handleDelete(selectedPatient._id)}
             >
-              Supprimer
+              <Trash2 /> Supprimer
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AdminPatientDialog 
+      <AdminPatientDialog
         isOpen={addEditDialogOpen}
         onClose={() => {
           setAddEditDialogOpen(false);

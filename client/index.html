@@ -1,10 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CKD Care — Suivi de la maladie rénale chronique</title>
+    <meta name="description" content="Plateforme de suivi des patients atteints de maladie rénale chronique." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d9488'/%3E%3Cpath d='M11 9c-3 0-5 3-5 7s2 7 5 7c2 0 3-1.5 3-3.5S12.5 17 12.5 16 14 14.5 14 12.5 13 9 11 9Zm10 0c3 0 5 3 5 7s-2 7-5 7c-2 0-3-1.5-3-3.5s1.5-2.5 1.5-3.5S18 14.5 18 12.5 19 9 21 9Z' fill='white'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+    <script>
+      // Applique le thème avant le premier rendu (évite le flash clair/sombre)
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('ckd-theme') || '{}');
+          var mode = s.mode || 'light';
+          var dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add('dark');
+          root.dataset.accent = s.accent || 'teal';
+          if (s.radius != null) root.style.setProperty('--radius', s.radius + 'rem');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-   
+  </body>
+</html>

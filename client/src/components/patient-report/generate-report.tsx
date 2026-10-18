@@ -228,33 +228,34 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
       // Risk Assessment Section
       if (reportSections.find(s => s.id === 'riskAssessment')?.enabled && patient.lastEgfrValue ) {
         doc.setFontSize(16);
-        doc.text('Risk Assessment', 14, yPos);
+        doc.text('Évaluation du risque', 14, yPos);
         yPos += 10;
 
-        const risk = determineProgressionRisk(patient.lastEgfrValue, patient.proteinuriaLevel);
+        const risk = determineProgressionRisk(patient.lastEgfrValue, patient.proteinuriaLevel ?? 'A1');
+        const RISK_LABELS: Record<string, string> = { Low: 'Faible', Moderate: 'Modéré', High: 'Élevé', 'Very High': 'Très élevé' };
 
         doc.setFontSize(12);
-        doc.text(`CKD Progression Risk: ${risk}`, 14, yPos);
+        doc.text(`Risque de progression de la MRC : ${RISK_LABELS[risk] ?? risk}`, 14, yPos);
         yPos += 7;
 
         // Add risk explanation
         let riskExplanation = '';
         switch (risk) {
           case 'Low':
-            riskExplanation = 'The patient has a low risk of CKD progression. Regular monitoring is recommended.';
+            riskExplanation = 'Le patient présente un risque faible de progression de la MRC. Un suivi régulier est recommandé.';
             break;
           case 'Moderate':
-            riskExplanation = 'The patient has a moderate risk of CKD progression. More frequent monitoring is advised.';
+            riskExplanation = 'Le patient présente un risque modéré de progression de la MRC. Un suivi plus fréquent est conseillé.';
             break;
           case 'High':
-            riskExplanation = 'The patient has a high risk of CKD progression. Close monitoring and management is necessary.';
+            riskExplanation = 'Le patient présente un risque élevé de progression de la MRC. Une surveillance et une prise en charge rapprochées sont nécessaires.';
             break;
           case 'Very High':
-            riskExplanation = 'The patient has a very high risk of CKD progression. Specialist referral and intensive management is required.';
+            riskExplanation = 'Le patient présente un risque très élevé de progression de la MRC. Un avis spécialisé et une prise en charge intensive sont requis.';
             break;
         }
 
-        doc.text('Risk Explanation:', 14, yPos);
+        doc.text('Interprétation :', 14, yPos);
         yPos += 7;
 
         // Split the explanation into multiple lines if needed
@@ -266,7 +267,7 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
       // Laboratory Results Section
       if (reportSections.find(s => s.id === 'labResults')?.enabled && labResults && labResults.length > 0 && labTests) {
         doc.setFontSize(16);
-        doc.text('Laboratory Results', 14, yPos);
+        doc.text('Résultats de laboratoire', 14, yPos);
         yPos += 10;
 
         // Prepare data for the table
@@ -274,18 +275,18 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
           const test = labTests.find(t => t._id === result.labTest._id);
           const value = parseFloat(result.resultValue.toString());
           const unit = result.labTest.unit || '';
-          const min = result.labTest.normalMin ? parseFloat(result.labTest.normalMin.toString()) : undefined;
-          const max = result.labTest.normalMax ? parseFloat(result.labTest.normalMax.toString()) : undefined;
+          const min = result.labTest.normalMin != null ? parseFloat(result.labTest.normalMin.toString()) : undefined;
+          const max = result.labTest.normalMax != null ? parseFloat(result.labTest.normalMax.toString()) : undefined;
 
           let message = '';
           let status = 'Normal';
           if (min !== undefined && max !== undefined) {
-            if (value < min) status = 'Below Normal';
-            else if (value > max) status = 'Above Normal';
+            if (value < min) status = 'Bas';
+            else if (value > max) status = 'Élevé';
           }
           const range = (min !== undefined && max !== undefined)
             ? `${min} - ${max} ${unit}`
-            : 'Not specified';
+            : 'Non précisée';
 
           return [
             formatDate(result.resultDate),
@@ -339,10 +340,12 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
         yPos = 20;
       }
 
+      const STATUS_LABELS: Record<string, string> = { pending: 'En attente', confirmed: 'Confirmé', cancelled: 'Annulé', completed: 'Terminé' };
+
       // Appointments Section
       if (reportSections.find(s => s.id === 'appointments')?.enabled && appointments && appointments.length > 0 && doctors) {
         doc.setFontSize(16);
-        doc.text('Appointments', 14, yPos);
+        doc.text('Rendez-vous', 14, yPos);
         yPos += 10;
 
         // Upcoming appointments
@@ -352,7 +355,7 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
 
         if (upcomingAppointments.length > 0) {
           doc.setFontSize(14);
-          doc.text('Upcoming Appointments', 14, yPos);
+          doc.text('Rendez-vous à venir', 14, yPos);
           yPos += 8;
 
           // Prepare data for the table
@@ -360,20 +363,20 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
             const doctor = doctors.find(d => d.id === appointment.doctorId);
             const doctorName = doctor
               ? `Dr. ${doctor.user.firstName} ${doctor.user.lastName}`
-              : 'Unknown Doctor';
+              : 'Médecin inconnu';
 
             return [
               formatDate(appointment.appointmentDate),
               formatTime(appointment.appointmentDate),
               doctorName,
-              appointment.purpose || 'General consultation',
-              appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)
+              appointment.purpose || 'Consultation',
+              STATUS_LABELS[appointment.status] ?? appointment.status
             ];
           });
 
           // Add table with upcoming appointments
           autoTable(doc, {
-            head: [['Date', 'Time', 'Doctor', 'Purpose', 'Status']],
+            head: [['Date', 'Heure', 'Médecin', 'Motif', 'Statut']],
             body: tableData,
             startY: yPos,
             theme: 'grid',
@@ -399,7 +402,7 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
           }
 
           doc.setFontSize(14);
-          doc.text('Past Appointments (Last 5)', 14, yPos);
+          doc.text('Rendez-vous passés (5 derniers)', 14, yPos);
           yPos += 8;
 
           // Prepare data for the table
@@ -407,20 +410,20 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
             const doctor = doctors.find(d => d.id === appointment.doctorId);
             const doctorName = doctor
               ? `Dr. ${doctor.user.firstName} ${doctor.user.lastName}`
-              : 'Unknown Doctor';
+              : 'Médecin inconnu';
 
             return [
               formatDate(appointment.appointmentDate),
               formatTime(appointment.appointmentDate),
               doctorName,
-              appointment.purpose || 'General consultation',
-              appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)
+              appointment.purpose || 'Consultation',
+              STATUS_LABELS[appointment.status] ?? appointment.status
             ];
           });
 
           // Add table with past appointments
           autoTable(doc, {
-            head: [['Date', 'Time', 'Doctor', 'Purpose', 'Status']],
+            head: [['Date', 'Heure', 'Médecin', 'Motif', 'Statut']],
             body: tableData,
             startY: yPos,
             theme: 'grid',
@@ -455,7 +458,7 @@ export function GenerateReport({ patient, trigger }: GenerateReportProps) {
       }
 
       // Save the PDF
-      doc.save(`patient-report-${patient.id}.pdf`);
+      doc.save(`rapport-patient-${patient.user.lastName.toLowerCase()}-${patient.id}.pdf`);
       setReportGenerated(true);
     } catch (error) {
       console.error('Error generating PDF report:', error);

@@ -3,16 +3,12 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader as LucideLoader } from 'lucide-react';
+import { ArrowLeft, HeartPulse, Loader2, MapPin, Save, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader, StageBadge } from '@/components/kit';
+import { cn } from '@/lib/utils';
 import {
   Form,
   FormControl,
@@ -26,11 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, PageLoader } from '@/components/ui/loader';
 import { PatientFormData, Patient } from '@/lib/types';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -39,14 +33,14 @@ interface PatientAddEditProps {
 }
 
 const formSchema = z.object({
-  firstName: z.string().min(2, { message: 'First name must be at least 2 characters' }),
-  lastName: z.string().min(2, { message: 'Last name must be at least 2 characters' }),
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Please enter a valid date (YYYY-MM-DD)' }),
-  gender: z.enum(['M', 'F', 'Autre'], { required_error: 'Please select a gender' }),
+  firstName: z.string().min(2, { message: 'Le prénom doit contenir au moins 2 caractères' }),
+  lastName: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
+  email: z.string().email({ message: 'Veuillez saisir une adresse email valide' }),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Veuillez saisir une date valide (AAAA-MM-JJ)' }),
+  gender: z.enum(['M', 'F', 'Autre'], { required_error: 'Veuillez sélectionner un sexe' }),
   address: z.string().optional(),
   phone: z.string().optional(),
-  ckdStage: z.enum(['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'], { required_error: 'Please select a CKD stage' }),
+  ckdStage: z.enum(['Stage 1', 'Stage 2', 'Stage 3A', 'Stage 3B', 'Stage 4', 'Stage 5'], { required_error: 'Veuillez sélectionner un stade MRC' }),
 });
 
 export default function PatientAddEdit({ id }: PatientAddEditProps) {
@@ -75,24 +69,6 @@ export default function PatientAddEdit({ id }: PatientAddEditProps) {
   const { data: patient, isLoading: patientLoading } = useQuery<Patient>({
     queryKey: [`/api/patients/${id}`],
     enabled: isEditing,
-    onSuccess: (data) => {
-      if (data) {
-        // Récupération des données depuis la table users
-        const userData = data.user;
-        const patientData = data;
-
-        form.reset({
-          firstName: userData?.firstName || '',
-          lastName: userData?.lastName || '',
-          email: userData?.email || '',
-          birthDate: patientData.birthDate ? new Date(patientData.birthDate).toISOString().split('T')[0] : '',
-          gender: patientData.gender || '',
-          address: patientData.address || '',
-          phone: patientData.phone || '',
-          ckdStage: patientData.ckdStage || ''
-        });
-      }
-    }
   });
 
 
@@ -119,8 +95,8 @@ export default function PatientAddEdit({ id }: PatientAddEditProps) {
     },
     onSuccess: () => {
       toast({
-        title: 'Success',
-        description: 'Patient updated successfully',
+        title: 'Patient mis à jour',
+        description: 'Les informations du patient ont été enregistrées.',
       });
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${id}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
@@ -128,8 +104,8 @@ export default function PatientAddEdit({ id }: PatientAddEditProps) {
     },
     onError: (error) => {
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update patient',
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Impossible de mettre à jour le patient',
         variant: 'destructive',
       });
     }
@@ -164,16 +140,16 @@ export default function PatientAddEdit({ id }: PatientAddEditProps) {
     },
     onSuccess: () => {
       toast({
-        title: 'Success',
-        description: 'Patient has been created successfully',
+        title: 'Patient créé',
+        description: 'Le nouveau patient a bien été enregistré.',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
       setLocation('/patients');
     },
     onError: (error) => {
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create patient',
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Impossible de créer le patient',
         variant: 'destructive',
       });
     }
@@ -190,247 +166,289 @@ export default function PatientAddEdit({ id }: PatientAddEditProps) {
     }
   };
 
-  // Loading state
+  const isSaving = createPatientMutation.isPending || updatePatientMutation.isPending;
+
+  // Chargement
   if (isEditing && patientLoading) {
-    return <PageLoader />;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-14 w-80" />
+        <Skeleton className="h-[640px] rounded-xl" />
+      </div>
+    );
   }
 
+  const p = patient as any;
+
   return (
-    <div className="flex flex-col space-y-6">
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => setLocation('/patients')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {isEditing ? 'Edit Patient' : 'Add New Patient'}
-        </h1>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        leading={
+          <Button
+            variant="outline"
+            size="icon"
+            className="mt-0.5 shrink-0"
+            aria-label="Retour"
+            onClick={() => setLocation('/patients')}
+          >
+            <ArrowLeft />
+          </Button>
+        }
+        eyebrow={isEditing ? 'Dossier patient' : 'Nouveau dossier'}
+        title={
+          isEditing && p?.user
+            ? `${p.user.firstName} ${p.user.lastName}`
+            : isEditing
+              ? 'Modifier le patient'
+              : 'Ajouter un patient'
+        }
+        description={
+          isEditing
+            ? 'Mettez à jour les informations de ce patient.'
+            : 'Renseignez les informations pour enregistrer un nouveau patient.'
+        }
+      />
 
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle>{isEditing ? 'Edit Patient Information' : 'New Patient Registration'}</CardTitle>
-          <CardDescription>
-            {isEditing 
-              ? 'Update the information for this patient'
-              : 'Enter the details to register a new patient'
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium">Personal Information</h3>
-                <Separator className="my-4" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter first name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+      <Card className="overflow-hidden">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="divide-y">
+              <FormSection
+                icon={<User />}
+                title="Identité"
+                description="Nom, email de connexion et informations civiles du patient."
+              >
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Prénom</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex. Koffi" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter last name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Nom</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex. Mensah" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Enter email address" 
-                            {...field} 
-                            disabled={isEditing} // Email should not be editable
-                          />
-                        </FormControl>
-                        {isEditing && (
-                          <FormDescription>
-                            Email cannot be changed after registration
-                          </FormDescription>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-
-
-                  <FormField
-                    control={form.control}
-                    name="birthDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Birth Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            value={field.value}
-                            className="flex gap-4"
-                          >
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="M" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Male</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="F" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Female</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="Autre" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Other</FormLabel>
-                            </FormItem>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium">Contact Information</h3>
-                <Separator className="my-4" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter phone number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="md:col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Enter full address" 
-                              className="resize-none" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="patient@exemple.com"
+                          {...field}
+                          disabled={isEditing} // L'email n'est pas modifiable
+                        />
+                      </FormControl>
+                      {isEditing && (
+                        <FormDescription className="text-xs">
+                          L'email ne peut pas être modifié après l'inscription.
+                        </FormDescription>
                       )}
-                    />
-                  </div>
-                </div>
-              </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div>
-                <h3 className="text-lg font-medium">Medical Information</h3>
-                <Separator className="my-4" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="ckdStage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CKD Stage</FormLabel>
-                        <Select 
+                <FormField
+                  control={form.control}
+                  name="birthDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Date de naissance</FormLabel>
+                      <FormControl>
+                        <Input type="date" className="dark:[color-scheme:dark]" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel className="text-[13px]">Sexe</FormLabel>
+                      <FormControl>
+                        <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
+                          value={field.value}
+                          className="grid grid-cols-3 gap-2"
                         >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select CKD stage" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Stage 1">Stage 1</SelectItem>
-                            <SelectItem value="Stage 2">Stage 2</SelectItem>
-                            <SelectItem value="Stage 3A">Stage 3A</SelectItem>
-                            <SelectItem value="Stage 3B">Stage 3B</SelectItem>
-                            <SelectItem value="Stage 4">Stage 4</SelectItem>
-                            <SelectItem value="Stage 5">Stage 5</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <CardFooter className="flex justify-between px-0 pb-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLocation('/patients')}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={createPatientMutation.isPending || updatePatientMutation.isPending}
-                >
-                  {(createPatientMutation.isPending || updatePatientMutation.isPending) && (
-                    <Loader color="white" size="sm" className="mr-2" />
+                          {GENDER_OPTIONS.map((g) => (
+                            <FormItem key={g.value} className="space-y-0">
+                              <FormLabel className={GENDER_OPTION_CLASS}>
+                                <FormControl>
+                                  <RadioGroupItem value={g.value} />
+                                </FormControl>
+                                {g.label}
+                              </FormLabel>
+                            </FormItem>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                  {isEditing ? 'Update Patient' : 'Create Patient'}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </CardContent>
+                />
+              </FormSection>
+
+              <FormSection
+                icon={<MapPin />}
+                title="Coordonnées"
+                description="Moyens de joindre le patient entre deux consultations."
+              >
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Téléphone</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+229 01 00 00 00 00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel className="text-[13px]">Adresse</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Adresse complète (quartier, ville…)"
+                          className="min-h-[88px] resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+
+              <FormSection
+                icon={<HeartPulse />}
+                title="Informations médicales"
+                description="Le stade MRC conditionne la fréquence de suivi et les alertes."
+              >
+                <FormField
+                  control={form.control}
+                  name="ckdStage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[13px]">Stade MRC</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un stade" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {STAGE_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>
+                              <span className="flex items-center gap-2">
+                                <StageBadge stage={s.value} />
+                                <span className="text-xs text-muted-foreground">{s.hint}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t bg-muted/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+              <Button type="button" variant="outline" onClick={() => setLocation('/patients')}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                {isEditing ? 'Enregistrer les modifications' : 'Créer le patient'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </Card>
     </div>
+  );
+}
+
+const GENDER_OPTIONS = [
+  { value: 'M', label: 'Homme' },
+  { value: 'F', label: 'Femme' },
+  { value: 'Autre', label: 'Autre' },
+];
+
+const GENDER_OPTION_CLASS = cn(
+  'flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border bg-background px-3 text-sm font-normal shadow-xs transition-colors hover:bg-muted/50',
+  'has-[[data-state=checked]]:border-primary/60 has-[[data-state=checked]]:bg-primary/5',
+);
+
+const STAGE_OPTIONS = [
+  { value: 'Stage 1', hint: 'DFG ≥ 90' },
+  { value: 'Stage 2', hint: 'DFG 60–89' },
+  { value: 'Stage 3A', hint: 'DFG 45–59' },
+  { value: 'Stage 3B', hint: 'DFG 30–44' },
+  { value: 'Stage 4', hint: 'DFG 15–29' },
+  { value: 'Stage 5', hint: 'DFG < 15' },
+];
+
+function FormSection({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-6 p-5 sm:p-6 md:grid-cols-3">
+      <div className="space-y-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/20 [&_svg]:h-[18px] [&_svg]:w-[18px]">
+          {icon}
+        </div>
+        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid content-start gap-4 sm:grid-cols-2 md:col-span-2">{children}</div>
+    </section>
   );
 }

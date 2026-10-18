@@ -7,122 +7,117 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(dateString: string | Date, options: Intl.DateTimeFormatOptions = {}): string {
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  
+  if (Number.isNaN(date.getTime())) return '—';
+
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   };
-  
-  return new Intl.DateTimeFormat('en-US', { ...defaultOptions, ...options }).format(date);
+
+  return new Intl.DateTimeFormat('fr-FR', { ...defaultOptions, ...options }).format(date);
+}
+
+export function formatShortDate(dateString: string | Date): string {
+  return formatDate(dateString, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function formatTime(dateString: string | Date): string {
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
     minute: '2-digit',
-    hour12: true
   }).format(date);
 }
 
 export function getTimeAgo(dateString: string): string {
   const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
-  if (seconds < 60) {
-    return `${seconds} seconds ago`;
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' });
+
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31536000],
+    ['month', 2592000],
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+  ];
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
   }
-  
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-  }
-  
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-  }
-  
-  const days = Math.floor(hours / 24);
-  if (days < 30) {
-    return `${days} day${days !== 1 ? 's' : ''} ago`;
-  }
-  
-  const months = Math.floor(days / 30);
-  if (months < 12) {
-    return `${months} month${months !== 1 ? 's' : ''} ago`;
-  }
-  
-  const years = Math.floor(months / 12);
-  return `${years} year${years !== 1 ? 's' : ''} ago`;
+  return "à l'instant";
 }
 
 export function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`;
 }
 
-export function getCKDStageColor(stage: string): { bg: string, text: string } {
-  switch (stage) {
-    case 'Stage 1':
-      return { bg: 'bg-green-100', text: 'text-green-800' };
-    case 'Stage 2':
-      return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
-    case 'Stage 3A':
-      return { bg: 'bg-orange-100', text: 'text-orange-800' };
-    case 'Stage 3B':
-      return { bg: 'bg-orange-100', text: 'text-orange-800' };
-    case 'Stage 4':
-      return { bg: 'bg-red-100', text: 'text-red-800' };
-    case 'Stage 5':
-      return { bg: 'bg-red-900', text: 'text-white' };
-    default:
-      return { bg: 'bg-gray-100', text: 'text-gray-800' };
-  }
+// Classes "soft" (fond teinté + texte) compatibles mode clair et sombre
+const STAGE_CLASSES: Record<string, { bg: string; text: string; dot: string; border: string }> = {
+  'Stage 1': { bg: 'bg-stage-1/10', text: 'text-stage-1', dot: 'bg-stage-1', border: 'border-stage-1/25' },
+  'Stage 2': { bg: 'bg-stage-2/10', text: 'text-stage-2', dot: 'bg-stage-2', border: 'border-stage-2/25' },
+  'Stage 3A': { bg: 'bg-stage-3a/10', text: 'text-stage-3a', dot: 'bg-stage-3a', border: 'border-stage-3a/25' },
+  'Stage 3B': { bg: 'bg-stage-3b/10', text: 'text-stage-3b', dot: 'bg-stage-3b', border: 'border-stage-3b/25' },
+  'Stage 4': { bg: 'bg-stage-4/10', text: 'text-stage-4', dot: 'bg-stage-4', border: 'border-stage-4/25' },
+  'Stage 5': { bg: 'bg-stage-5/10', text: 'text-stage-5', dot: 'bg-stage-5', border: 'border-stage-5/25' },
+};
+
+const NEUTRAL = { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground', border: 'border-border' };
+
+export function getCKDStageColor(stage: string): { bg: string; text: string; dot: string; border: string } {
+  return STAGE_CLASSES[stage] ?? NEUTRAL;
 }
 
-export function getStatusColor(status: string): { bg: string, text: string } {
+export function getCKDStageLabel(stage?: string | null): string {
+  return stage ? stage.replace('Stage', 'Stade') : 'Non défini';
+}
+
+export function getStatusColor(status: string): { bg: string; text: string; dot: string; border: string } {
   switch (status) {
     case 'pending':
-      return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
+      return { bg: 'bg-warning/10', text: 'text-warning', dot: 'bg-warning', border: 'border-warning/25' };
     case 'confirmed':
-      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+      return { bg: 'bg-info/10', text: 'text-info', dot: 'bg-info', border: 'border-info/25' };
     case 'cancelled':
-      return { bg: 'bg-red-100', text: 'text-red-800' };
+      return { bg: 'bg-destructive/10', text: 'text-destructive', dot: 'bg-destructive', border: 'border-destructive/25' };
     case 'completed':
-      return { bg: 'bg-green-100', text: 'text-green-800' };
+      return { bg: 'bg-success/10', text: 'text-success', dot: 'bg-success', border: 'border-success/25' };
     default:
-      return { bg: 'bg-gray-100', text: 'text-gray-800' };
+      return NEUTRAL;
   }
 }
 
 export function getAlertBgColor(type: string): string {
   switch (type) {
     case 'critical':
-      return 'bg-red-100';
+    case 'error':
+      return 'bg-destructive/10';
     case 'warning':
-      return 'bg-orange-100';
+      return 'bg-warning/10';
     case 'info':
-      return 'bg-yellow-100';
+      return 'bg-info/10';
     case 'dfg':
-      return 'bg-purple-100';
+      return 'bg-chart-3/10';
     default:
-      return 'bg-gray-100';
+      return 'bg-muted';
   }
 }
 
 export function getAlertTextColor(type: string): string {
   switch (type) {
     case 'critical':
-      return 'text-red-600';
+    case 'error':
+      return 'text-destructive';
     case 'warning':
-      return 'text-orange-600';
+      return 'text-warning';
     case 'info':
-      return 'text-yellow-600';
+      return 'text-info';
+    case 'dfg':
+      return 'text-chart-3';
     default:
-      return 'text-gray-600';
+      return 'text-muted-foreground';
   }
 }
 
@@ -140,23 +135,18 @@ export function calculateAge(birthDate: string): number {
 }
 
 export function getAvatarColor(initials: string): string {
-  // Generate a deterministic color based on initials
-  const hash = initials.charCodeAt(0) + (initials.length > 1 ? initials.charCodeAt(1) : 0);
-  
-  // Palette plus colorée et plus visible, avec contraste texte optimisé pour tous les modes
+  // Couleur déterministe à partir des initiales, en teinte douce
+  const hash = (initials.charCodeAt(0) || 0) + (initials.length > 1 ? initials.charCodeAt(1) : 0);
+
   const colors = [
-    'bg-primary text-primary-foreground',
-    'bg-indigo-500 text-white',
-    'bg-green-500 text-white',
-    'bg-purple-500 text-white',
-    'bg-rose-500 text-white',
-    'bg-amber-500 text-white',
-    'bg-sky-500 text-white',
-    'bg-emerald-500 text-white',
-    'bg-teal-500 text-white',
-    'bg-blue-500 text-white'
+    'bg-primary/10 text-primary',
+    'bg-chart-2/10 text-chart-2',
+    'bg-chart-3/10 text-chart-3',
+    'bg-chart-4/10 text-chart-4',
+    'bg-chart-5/10 text-chart-5',
+    'bg-success/10 text-success',
   ];
-  
+
   return colors[hash % colors.length];
 }
 

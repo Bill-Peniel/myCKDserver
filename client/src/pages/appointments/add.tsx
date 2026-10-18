@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
 import AddAppointmentDialog from '@/components/appointments/add-dialog';
+import AppointmentsPage from './index';
 
 export default function AppointmentAdd() {
   const [, setLocation] = useLocation();
@@ -12,10 +12,14 @@ export default function AppointmentAdd() {
     setLocation('/appointments');
   };
 
+  // L'agenda reste visible derrière le dialogue
   return (
-    <AddAppointmentDialog
-      isOpen={isDialogOpen}
-      onClose={handleClose}
-    />
+    <>
+      <AppointmentsPage />
+      <AddAppointmentDialog
+        isOpen={isDialogOpen}
+        onClose={handleClose}
+      />
+    </>
   );
 }

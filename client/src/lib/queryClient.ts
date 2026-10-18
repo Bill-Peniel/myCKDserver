@@ -3,7 +3,16 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // L'API renvoie { message } : on n'expose que ce message à l'interface
+    let message = text;
+    try {
+      message = JSON.parse(text).message || text;
+    } catch {
+      // réponse non JSON
+    }
+    const error = new Error(message) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
 }
 
@@ -23,23 +32,11 @@ export async function apiRequest(
     ...(token ? { "Authorization": `Bearer ${token}` } : {})
   };
   
-  console.log(`Envoi requête ${method} vers ${url}`, { 
-    headers, 
-    data: data || 'Pas de données' 
-  });
-
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
-  });
-
-  console.log(`Réponse reçue de ${url}:`, {
-    status: res.status,
-    ok: res.ok,
-    statusText: res.statusText,
-    headers: Object.fromEntries(res.headers.entries())
   });
 
   await throwIfResNotOk(res);
