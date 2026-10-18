@@ -106,15 +106,3 @@ Ajout d’un portail patient pour consultation et interaction.
 Intégration de modèles prédictifs basés sur l’IA.
 
 Tableau de bord médical avec KPIs et visualisations.
-
-Auteurs
-
-SANNI Charbel
-
-AKPACHEME Bill
-
-COMADOU Syldon
-
-ADETOUTOU Karel Pio-Marie
-
-SOULE CHABI Ryad
