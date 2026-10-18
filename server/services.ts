@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
 import { and, eq, ne } from "drizzle-orm";

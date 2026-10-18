@@ -1,5 +1,4 @@
 import { Router, type Express } from "express";
-import { createServer, type Server } from "http";
 import { authenticate, requireRole, setupSession } from "./auth";
 import authRouter from "./api/auth";
 import userRouter from "./api/user";
@@ -13,7 +12,7 @@ import dashboardRouter from "./api/dashboard";
 import chatbotRouter from "./api/chatbot";
 import adminRouter from "./api/admin";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): void {
   setupSession(app);
 
   const api = Router();
@@ -39,6 +38,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   api.use((_req, res) => {
     res.status(404).json({ message: "Route API introuvable" });
   });
-
-  return createServer(app);
 }

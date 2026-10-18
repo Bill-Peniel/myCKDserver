@@ -48,7 +48,9 @@ export function setupSession(app: Express) {
       secret: SECRET,
       resave: false,
       saveUninitialized: false,
-      store: new PgStore({ pool, tableName: "user_sessions", createTableIfMissing: true }),
+      // La table est créée par seed.ts : createTableIfMissing lit un fichier .sql du paquet,
+      // absent une fois l'application empaquetée (Vercel).
+      store: new PgStore({ pool, tableName: "user_sessions" }),
       cookie: {
         httpOnly: true,
         sameSite: "lax",

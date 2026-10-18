@@ -81,6 +81,21 @@ l'espace d'administration. Un mot de passe temporaire est généré et envoyé a
 e-mail (EMAIL_USER / EMAIL_PASS). Si l'envoi échoue, il est affiché une seule fois à l'admin.
 
 
+Déploiement sur Vercel
+
+Le projet est prêt pour Vercel (fichier vercel.json) : le frontend est servi en statique
+et toute l'API Express tourne dans une fonction serverless (script/vercel-build.mjs).
+
+1. Importer le dépôt dans Vercel (Framework Preset : « Other », laisser les commandes par défaut).
+2. Dans Settings → Environment Variables, ajouter :
+   DATABASE_URL (Neon, URL « pooled »), SESSION_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD,
+   APP_URL (ex. https://mon-projet.vercel.app), EMAIL_USER, EMAIL_PASS, GEMINI_API_KEY.
+3. Créer les tables une fois depuis votre poste : npm run db:push
+4. Déployer. Le premier appel à l'API crée le compte administrateur et le catalogue des tests.
+
+Test du build en local : npm run vercel-build (résultat dans .vercel/output).
+
+
 Tests
 
 Tests unitaires

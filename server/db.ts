@@ -15,7 +15,8 @@ const isLocalDatabase = /@(localhost|127\.0\.0\.1)(:|\/)/.test(process.env.DATAB
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: isLocalDatabase ? false : { rejectUnauthorized: false },
-  max: 10,
+  // En serverless (Vercel), chaque instance garde peu de connexions ; le pooler Neon fait le reste
+  max: process.env.VERCEL ? 3 : 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });

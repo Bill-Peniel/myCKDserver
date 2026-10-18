@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { db } from "./db";
 import { labTests, users, type InsertLabTest } from "../shared/schema";
@@ -175,7 +175,21 @@ const LAB_TESTS: InsertLabTest[] = [
   }
 ];
 
+// Table des sessions (schéma attendu par connect-pg-simple)
+async function ensureSessionTable() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "user_sessions" (
+      "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_user_sessions_expire" ON "user_sessions" ("expire")`);
+}
+
 export async function seedDatabase() {
+  await ensureSessionTable();
+
   // Insère les tests manquants sans toucher à ceux qui existent déjà
   const inserted = await db.insert(labTests).values(LAB_TESTS).onConflictDoNothing({ target: labTests.testName }).returning();
   if (inserted.length) console.log(`🌱 ${inserted.length} test(s) de laboratoire ajouté(s)`);
